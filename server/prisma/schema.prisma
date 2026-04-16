@@ -27,32 +27,67 @@ enum SenderType {
   HUMAN @map("human")
 }
 
+enum MessageDirection {
+  INBOUND  @map("inbound")
+  OUTBOUND @map("outbound")
+}
+
+enum MessageType {
+  TEXT    @map("text")
+  STATUS  @map("status")
+  UNKNOWN @map("unknown")
+}
+
+enum MessageStatus {
+  SENT      @map("sent")
+  DELIVERED @map("delivered")
+  READ      @map("read")
+  RECEIVED  @map("received")
+  UNKNOWN   @map("unknown")
+}
+
 model Conversation {
   id              String             @id @default(uuid())
   workspaceId     String
   phoneNumber     String
   leadStage       LeadStage          @default(NEW)
   status          ConversationStatus @default(ACTIVE)
+  lastMessageAt   DateTime?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
   messages        Message[]
   handoffSessions HandoffSession[]
 
+  @@unique([workspaceId, phoneNumber])
   @@index([workspaceId, phoneNumber])
   @@map("conversations")
 }
 
 model Message {
-  id             String       @id @default(uuid())
-  conversationId String
-  senderType     SenderType
-  content        String
-  rawPayload     Json?
-  createdAt      DateTime     @default(now())
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  id                String           @id @default(uuid())
+  conversationId    String
+  externalMessageId String?          @unique
+  senderType        SenderType
+  direction         MessageDirection @default(INBOUND)
+  messageType       MessageType      @default(UNKNOWN)
+  content           String?
+  rawPayload        Json
+  status            MessageStatus    @default(UNKNOWN)
+  timestamp         DateTime?
+  createdAt         DateTime         @default(now())
+  conversation      Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
   @@map("messages")
+}
+
+model InboundEventLog {
+  id        String   @id @default(uuid())
+  dedupKey  String   @unique
+  rawPayload Json
+  receivedAt DateTime @default(now())
+
+  @@map("inbound_event_logs")
 }
 
 model BrandContext {
