@@ -9,7 +9,11 @@ export interface EnvironmentVariables {
   DIRECT_URL: string;
   AI_DEFAULT_PROVIDER: AiDefaultProvider;
   GEMINI_API_KEY?: string;
+  GEMINI_MODEL?: string;
   OPENAI_API_KEY?: string;
+  OPENAI_MODEL?: string;
+  AI_TIMEOUT_MS?: number;
+  AI_MAX_RETRIES?: number;
   WHATSAPP_ACCESS_TOKEN: string;
   WHATSAPP_PHONE_NUMBER_ID: string;
   WHATSAPP_BUSINESS_ACCOUNT_ID?: string;

@@ -1,19 +1,22 @@
 import { Module } from '@nestjs/common';
+import { AiModule } from '../ai/ai.module';
+import { BrandContextModule } from '../brand-context/brand-context.module';
+import { AppConfigModule } from '../config/app-config.module';
 import { AiBrainController } from './ai-brain.controller';
 import { AiBrainService } from './ai-brain.service';
-import { AI_PROVIDER_TOKEN } from './providers/ai-provider.interface';
-import { NoopAiProvider } from './providers/noop-ai.provider';
+import { AiContextAssemblerService } from './services/ai-context-assembler.service';
+import { AiDecisionService } from './services/ai-decision.service';
+import { AiDecisionValidatorService } from './services/ai-decision-validator.service';
 
 @Module({
+  imports: [AppConfigModule, AiModule, BrandContextModule],
   controllers: [AiBrainController],
   providers: [
     AiBrainService,
-    NoopAiProvider,
-    {
-      provide: AI_PROVIDER_TOKEN,
-      useExisting: NoopAiProvider,
-    },
+    AiDecisionService,
+    AiContextAssemblerService,
+    AiDecisionValidatorService,
   ],
-  exports: [AiBrainService, AI_PROVIDER_TOKEN],
+  exports: [AiBrainService],
 })
 export class AiBrainModule {}

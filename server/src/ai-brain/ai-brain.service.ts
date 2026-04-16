@@ -1,15 +1,13 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { GenerateAiDecisionDto } from './dto/generate-ai-decision.dto';
-import { AI_PROVIDER_TOKEN } from './providers/ai-provider.interface';
-import type { AiProvider } from './providers/ai-provider.interface';
+import { Injectable } from '@nestjs/common';
+import { TestAiDecisionDto } from './dto/test-ai-decision.dto';
+import { SalesAiDecision } from './schemas/sales-ai-decision.schema';
+import { AiDecisionService } from './services/ai-decision.service';
 
 @Injectable()
 export class AiBrainService {
-  constructor(
-    @Inject(AI_PROVIDER_TOKEN) private readonly aiProvider: AiProvider,
-  ) {}
+  constructor(private readonly aiDecisionService: AiDecisionService) {}
 
-  async generateDecision(input: GenerateAiDecisionDto): Promise<unknown> {
-    return this.aiProvider.generateResponse(input);
+  async generateDecision(input: TestAiDecisionDto): Promise<SalesAiDecision> {
+    return this.aiDecisionService.generateDecision(input);
   }
 }

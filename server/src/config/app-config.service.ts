@@ -35,9 +35,25 @@ export class AppConfigService {
     return value && value.length > 0 ? value : undefined;
   }
 
+  get geminiModel(): string {
+    return this.configService.getOrThrow<string>('GEMINI_MODEL');
+  }
+
   get openAiApiKey(): string | undefined {
     const value = this.configService.get<string>('OPENAI_API_KEY');
     return value && value.length > 0 ? value : undefined;
+  }
+
+  get openAiModel(): string {
+    return this.configService.getOrThrow<string>('OPENAI_MODEL');
+  }
+
+  get aiTimeoutMs(): number {
+    return this.configService.getOrThrow<number>('AI_TIMEOUT_MS');
+  }
+
+  get aiMaxRetries(): number {
+    return this.configService.getOrThrow<number>('AI_MAX_RETRIES');
   }
 
   get whatsappAccessToken(): string {
