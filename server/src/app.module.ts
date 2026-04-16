@@ -9,6 +9,7 @@ import { ConversationsModule } from './conversations/conversations.module';
 import { DatabaseModule } from './database/database.module';
 import { HandoffModule } from './handoff/handoff.module';
 import { SalesEngineModule } from './sales-engine/sales-engine.module';
+import { TrainingSettingsModule } from './training-settings/training-settings.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 
 @Module({
@@ -22,6 +23,7 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     WhatsappModule,
     HandoffModule,
     AnalyticsModule,
+    TrainingSettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -91,25 +91,62 @@ model InboundEventLog {
 }
 
 model BrandContext {
-  id          String   @id @default(uuid())
-  workspaceId String   @unique
-  tone        String?
-  salesStyle  String?
-  dataJson    Json?
-  createdAt   DateTime @default(now())
+  id                 String    @id @default(uuid())
+  workspaceId        String    @unique
+  tone               String?
+  salesStyle         String?
+  dataJson           Json?
+  sourceStatusJson   Json?
+  websiteSignalsJson Json?
+  instagramSignalsJson Json?
+  resolvedContextJson Json?
+  confidenceJson     Json?
+  lastResolvedAt     DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@map("brand_contexts")
 }
 
 model TrainingSetting {
-  id           String   @id @default(uuid())
-  workspaceId  String   @unique
-  faqJson      Json?
-  productsJson Json?
-  rulesJson    Json?
-  createdAt    DateTime @default(now())
+  id                     String   @id @default(uuid())
+  workspaceId            String   @unique
+  faqJson                Json?
+  productsJson           Json?
+  rulesJson              Json?
+  forbiddenResponsesJson Json?
+  handoffRulesJson       Json?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   @@map("training_settings")
+}
+
+model WebsiteAnalysisSnapshot {
+  id                 String   @id @default(uuid())
+  workspaceId        String
+  rootUrl            String
+  pagesJson          Json
+  extractedSignalsJson Json
+  confidence         Float?
+  createdAt          DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@map("website_analysis_snapshots")
+}
+
+model InstagramAnalysisSnapshot {
+  id                 String   @id @default(uuid())
+  workspaceId        String
+  instagramHandle    String
+  profileJson        Json
+  postsJson          Json
+  extractedSignalsJson Json
+  confidence         Float?
+  createdAt          DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@map("instagram_analysis_snapshots")
 }
 
 model WhatsAppConnection {
