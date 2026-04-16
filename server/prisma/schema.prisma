@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -56,12 +56,12 @@ model Message {
 }
 
 model BrandContext {
-  id         String   @id @default(uuid())
-  workspaceId String  @unique
-  tone       String?
-  salesStyle String?
-  dataJson   Json?
-  createdAt  DateTime @default(now())
+  id          String   @id @default(uuid())
+  workspaceId String   @unique
+  tone        String?
+  salesStyle  String?
+  dataJson    Json?
+  createdAt   DateTime @default(now())
 
   @@map("brand_contexts")
 }
@@ -82,8 +82,12 @@ model WhatsAppConnection {
   workspaceId          String   @unique
   phoneNumber          String
   accessTokenEncrypted String
+  phoneNumberId        String
+  businessAccountId    String?
+  webhookVerifyToken   String?
   metadataJson         Json?
   createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@map("whatsapp_connections")
 }
@@ -100,11 +104,11 @@ model HandoffSession {
 }
 
 model AnalyticsEvent {
-  id         String   @id @default(uuid())
+  id          String   @id @default(uuid())
   workspaceId String
-  type       String
+  type        String
   payloadJson Json?
-  createdAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
 
   @@index([workspaceId, type, createdAt])
   @@map("analytics_events")

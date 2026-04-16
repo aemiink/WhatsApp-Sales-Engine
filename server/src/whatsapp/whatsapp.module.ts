@@ -1,19 +1,35 @@
 import { Module } from '@nestjs/common';
-import { NoopWhatsAppProvider } from './providers/noop-whatsapp.provider';
+import { AppConfigModule } from '../config/app-config.module';
+import { WhatsAppMessagesController } from './controllers/whatsapp-messages.controller';
+import { WhatsAppWebhookController } from './controllers/whatsapp-webhook.controller';
+import { MetaWhatsAppProvider } from './providers/meta-whatsapp.provider';
 import { WHATSAPP_PROVIDER_TOKEN } from './providers/whatsapp-provider.interface';
-import { WhatsappController } from './whatsapp.controller';
-import { WhatsappService } from './whatsapp.service';
+import { WhatsAppConnectionService } from './services/whatsapp-connection.service';
+import { WhatsAppDedupService } from './services/whatsapp-dedup.service';
+import { WhatsAppMessageParserService } from './services/whatsapp-message-parser.service';
+import { WhatsAppMessageSenderService } from './services/whatsapp-message-sender.service';
+import { WhatsAppWebhookService } from './services/whatsapp-webhook.service';
 
 @Module({
-  controllers: [WhatsappController],
+  imports: [AppConfigModule],
+  controllers: [WhatsAppWebhookController, WhatsAppMessagesController],
   providers: [
-    WhatsappService,
-    NoopWhatsAppProvider,
+    WhatsAppWebhookService,
+    WhatsAppMessageParserService,
+    WhatsAppMessageSenderService,
+    WhatsAppConnectionService,
+    WhatsAppDedupService,
+    MetaWhatsAppProvider,
     {
       provide: WHATSAPP_PROVIDER_TOKEN,
-      useExisting: NoopWhatsAppProvider,
+      useExisting: MetaWhatsAppProvider,
     },
   ],
-  exports: [WhatsappService, WHATSAPP_PROVIDER_TOKEN],
+  exports: [
+    WhatsAppWebhookService,
+    WhatsAppMessageSenderService,
+    WhatsAppConnectionService,
+    WHATSAPP_PROVIDER_TOKEN,
+  ],
 })
 export class WhatsappModule {}

@@ -15,6 +15,11 @@ describe('AppController (e2e)', () => {
     process.env.AI_DEFAULT_PROVIDER ??= 'gemini';
     process.env.GEMINI_API_KEY ??= 'test-gemini-key';
 
+    process.env.WHATSAPP_ACCESS_TOKEN ??= 'test-wa-access-token';
+    process.env.WHATSAPP_PHONE_NUMBER_ID ??= '123456789';
+    process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN ??= 'test-webhook-token';
+    process.env.META_GRAPH_API_VERSION ??= 'v21.0';
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();

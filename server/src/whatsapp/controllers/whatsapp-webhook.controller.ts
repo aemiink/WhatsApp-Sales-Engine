@@ -1,0 +1,39 @@
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Post,
+  Query,
+  Res,
+} from '@nestjs/common';
+import type { Response } from 'express';
+import { WhatsAppWebhookVerificationQueryDto } from '../dto/webhook-verification-query.dto';
+import { WhatsAppWebhookService } from '../services/whatsapp-webhook.service';
+
+@Controller('webhooks/whatsapp')
+export class WhatsAppWebhookController {
+  constructor(private readonly webhookService: WhatsAppWebhookService) {}
+
+  @Get()
+  verifyWebhook(
+    @Query('hub.mode') hubMode: string | undefined,
+    @Query('hub.verify_token') hubVerifyToken: string | undefined,
+    @Query('hub.challenge') hubChallenge: string | undefined,
+    @Res() response: Response,
+  ): void {
+    const challenge = this.webhookService.verifyWebhook({
+      hubMode,
+      hubVerifyToken,
+      hubChallenge,
+    } as WhatsAppWebhookVerificationQueryDto);
+
+    response.status(200).send(challenge);
+  }
+
+  @Post()
+  @HttpCode(200)
+  ingestWebhook(@Body() payload: unknown) {
+    return this.webhookService.ingestWebhook(payload);
+  }
+}

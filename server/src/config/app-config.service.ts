@@ -39,4 +39,29 @@ export class AppConfigService {
     const value = this.configService.get<string>('OPENAI_API_KEY');
     return value && value.length > 0 ? value : undefined;
   }
+
+  get whatsappAccessToken(): string {
+    return this.configService.getOrThrow<string>('WHATSAPP_ACCESS_TOKEN');
+  }
+
+  get whatsappPhoneNumberId(): string {
+    return this.configService.getOrThrow<string>('WHATSAPP_PHONE_NUMBER_ID');
+  }
+
+  get whatsappBusinessAccountId(): string | undefined {
+    const value = this.configService.get<string>(
+      'WHATSAPP_BUSINESS_ACCOUNT_ID',
+    );
+    return value && value.length > 0 ? value : undefined;
+  }
+
+  get whatsappWebhookVerifyToken(): string {
+    return this.configService.getOrThrow<string>(
+      'WHATSAPP_WEBHOOK_VERIFY_TOKEN',
+    );
+  }
+
+  get metaGraphApiVersion(): string {
+    return this.configService.getOrThrow<string>('META_GRAPH_API_VERSION');
+  }
 }

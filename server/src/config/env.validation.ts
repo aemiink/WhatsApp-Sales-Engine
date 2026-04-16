@@ -25,4 +25,12 @@ export const envValidationSchema = Joi.object({
       then: Joi.required(),
       otherwise: Joi.optional().allow(''),
     }),
+  WHATSAPP_ACCESS_TOKEN: Joi.string().trim().required(),
+  WHATSAPP_PHONE_NUMBER_ID: Joi.string().trim().required(),
+  WHATSAPP_BUSINESS_ACCOUNT_ID: Joi.string().trim().optional().allow(''),
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN: Joi.string().trim().required(),
+  META_GRAPH_API_VERSION: Joi.string()
+    .trim()
+    .pattern(/^v\d+\.\d+$/)
+    .required(),
 }).unknown(true);
