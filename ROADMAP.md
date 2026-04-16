@@ -5,7 +5,7 @@ Bu doküman, fazlara bölünmüş düzeltme planını ve her faz tamamlandığı
 ## Önerilen uygulama sırası
 
 1. Sprint 1 — Backend security (workspace isolation) ✅
-2. Sprint 2 — Client auth
+2. Sprint 2 — Client auth ✅
 3. Sprint 3 — Client API layer
 4. Sprint 4 — AI setup entegrasyonu
 5. Sprint 5 — Live chat entegrasyonu
@@ -80,29 +80,62 @@ Bu doküman, fazlara bölünmüş düzeltme planını ve her faz tamamlandığı
 
 ---
 
-## Sprint 2 — Client auth ve gerçek session akışı
+## Sprint 2 — Client auth ve gerçek session akışı ✅ TAMAMLANDI
 
 ### Hedef
 - Login sayfasını gerçek auth'a bağlamak
 - Token yönetimini kurmak
 - User/workspace context'i local fallback'ten çıkarmak
 
-### Kapsam / Yapılacaklar
-- `/auth/login` gerçek çağrı
-- Access/refresh token saklama
-- `/auth/me` endpoint ile session restore
-- Logout akışı
-- Client'ta `workspaceId` ve `userId` fallback'lerini kaldır
-- Request interceptor / auth header standardı
+### Yapılanlar
+1. **Token storage utility**
+   - `client/src/app/lib/auth/tokenStorage.ts` → `read / write / clear` üzerinden localStorage soyutlaması (SSR / private browsing fallback safe)
 
-### Done kriterleri
-- Kullanıcı login olabiliyor
-- Token ile protected endpoint'ler çalışıyor
-- Refresh sonrası session korunuyor
-- Demo fallback'e ihtiyaç kalmıyor
+2. **Merkezi API client**
+   - `client/src/app/lib/api/apiClient.ts` → `apiRequest<T>()`
+     - Bearer token header otomatik ekleniyor
+     - 401 alınırsa `POST /auth/refresh` → başarılı ise orijinal istek yeni token ile tekrarlanıyor (single-flight)
+     - Refresh başarısız olursa `onUnauthorized()` çağrılıp session temizleniyor
+     - `ApiError` class (status + message + body) ile tekil hata tipi
+   - `VITE_API_BASE_URL` environment değişkenine duyarlı
 
-### Durum
-Not started.
+3. **AuthProvider + useAuth**
+   - `client/src/app/lib/auth/AuthContext.tsx` → `status: 'loading' | 'authenticated' | 'unauthenticated'`, `user`, `workspace`, `login()`, `logout()`, `refreshSession()`
+   - Mount edildiğinde token varsa `GET /auth/me` ile session restore
+   - `setUnauthorizedHandler` apiClient'tan tetiklenince otomatik logout
+
+4. **ProtectedRoute**
+   - `client/src/app/components/ProtectedRoute.tsx` → `loading` için spinner, `unauthenticated` ise `/login` yönlendirmesi (`from` state'i ile geri dönüş adresini koruyor)
+
+5. **Login sayfası gerçek API'ye bağlı**
+   - `Login.tsx` artık `useAuth().login()` çağırıyor, 401 ve network hatası için kullanıcıya mesaj gösteriyor
+   - Zaten authenticated isse direkt `from` hedefine yönlendiriyor
+
+6. **Routes korumaya alındı**
+   - `/`, `/ai-setup`, `/ai-ready` ve Layout altındaki tüm rotalar `ProtectedRoute` ile sarıldı (`routes.tsx`)
+
+7. **Layout**
+   - Demo `demo@prompta.ai` sabit email ve "Premium Plan" yazısı kaldırıldı → `useAuth().user.displayName/email` + `workspace.name`
+   - Logout butonu `useAuth().logout()` + `/login`'e yönlendirme
+
+### Done kriterleri (karşılanıyor)
+- ✅ Kullanıcı gerçek backend `/auth/login` üzerinden login olabiliyor
+- ✅ Access token tüm `apiRequest` çağrılarında otomatik ekleniyor
+- ✅ 401 alınınca refresh denemesi yapılıyor ve başarılıysa istek tekrarlanıyor
+- ✅ Sayfa yenilemesinden sonra `/auth/me` ile session restore oluyor
+- ✅ Client'ta hardcoded workspace/user fallback kalmadı (Layout içinde)
+
+### Doğrulama
+- `vite build` → başarılı, 2270 modül, hata yok
+
+### Değişen / yeni dosyalar
+- Yeni: `client/src/app/lib/auth/tokenStorage.ts`, `client/src/app/lib/auth/AuthContext.tsx`, `client/src/app/lib/api/apiClient.ts`, `client/src/app/components/ProtectedRoute.tsx`
+- Güncellendi: `client/src/app/App.tsx`, `client/src/app/routes.tsx`, `client/src/app/pages/Login.tsx`, `client/src/app/components/Layout.tsx`
+
+### Notlar / Sprint 3'e taşınan
+- `useNotifications` hook'u hâlâ direkt `fetch` kullanıyor ve auth header eklemiyor → Sprint 3'te `apiClient`'a göçecek
+- SSE stream (`/notifications/stream`) auth problemi Sprint 8 kapsamında
+- Diğer sayfa-içi veri fetch noktaları Sprint 3'te merkezi `apiClient`'a taşınacak
 
 ---
 

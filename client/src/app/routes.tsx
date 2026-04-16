@@ -1,5 +1,6 @@
 import { createBrowserRouter } from "react-router";
 import { Layout } from "./components/Layout";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Dashboard } from "./pages/Dashboard";
 import { LiveChat } from "./pages/LiveChat";
 import { AutomationBuilder } from "./pages/AutomationBuilder";
@@ -19,15 +20,27 @@ export const router = createBrowserRouter([
   },
   {
     path: "/ai-setup",
-    Component: AISetup,
+    element: (
+      <ProtectedRoute>
+        <AISetup />
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/ai-ready",
-    Component: AIReady,
+    element: (
+      <ProtectedRoute>
+        <AIReady />
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/",
-    Component: Layout,
+    element: (
+      <ProtectedRoute>
+        <Layout />
+      </ProtectedRoute>
+    ),
     children: [
       { index: true, Component: Dashboard },
       { path: "chat", Component: LiveChat },

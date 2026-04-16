@@ -13,6 +13,7 @@ import {
   Users,
   Zap,
 } from 'lucide-react';
+import { useAuth } from '../lib/auth/AuthContext';
 import { NotificationBell } from './notifications/NotificationBell';
 
 interface NavigationItem {
@@ -91,15 +92,19 @@ const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
 export function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, workspace, logout } = useAuth();
   const currentItem =
     navigationGroups
       .flatMap((group) => group.items)
       .find((item) => item.href === location.pathname) ?? null;
 
   const handleLogout = () => {
-    // Clear any auth tokens/session data here
-    navigate('/login');
+    logout();
+    navigate('/login', { replace: true });
   };
+
+  const userLabel = user?.displayName ?? user?.email ?? 'Kullanıcı';
+  const workspaceLabel = workspace?.name ?? 'Workspace';
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
@@ -190,8 +195,8 @@ export function Layout() {
                   <User className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-foreground truncate">demo@prompta.ai</p>
-                  <p className="text-xs text-muted-foreground">Premium Plan</p>
+                  <p className="text-xs font-semibold text-foreground truncate">{userLabel}</p>
+                  <p className="text-xs text-muted-foreground truncate">{workspaceLabel}</p>
                 </div>
               </div>
               <button

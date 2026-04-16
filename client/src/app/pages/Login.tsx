@@ -1,24 +1,47 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router';
 import { Mail, Lock, Eye, EyeOff, Zap, ArrowRight, Sparkles } from 'lucide-react';
+import { ApiError } from '../lib/api/apiClient';
+import { useAuth } from '../lib/auth/AuthContext';
 
 export function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login, status } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const redirectTarget =
+    (location.state as { from?: string } | null)?.from ?? '/';
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      navigate(redirectTarget, { replace: true });
+    }
+  }, [status, navigate, redirectTarget]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     setIsLoading(true);
 
-    // Simulate login
-    setTimeout(() => {
+    try {
+      await login({ email: email.trim(), password });
+      navigate(redirectTarget, { replace: true });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        setErrorMessage('E-posta veya şifre hatalı.');
+      } else if (error instanceof ApiError) {
+        setErrorMessage(error.message || 'Giriş yapılamadı. Lütfen tekrar deneyin.');
+      } else {
+        setErrorMessage('Sunucuya ulaşılamadı. Bağlantınızı kontrol edin.');
+      }
+    } finally {
       setIsLoading(false);
-      navigate('/ai-setup'); // First-time users go to setup
-      // Or navigate('/') for returning users
-    }, 1500);
+    }
   };
 
   return (
@@ -60,6 +83,11 @@ export function Login() {
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
+            {errorMessage ? (
+              <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                {errorMessage}
+              </div>
+            ) : null}
             {/* Email Field */}
             <div>
               <label className="text-sm font-semibold mb-2 block">E-posta</label>
