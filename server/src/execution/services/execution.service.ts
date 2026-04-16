@@ -93,24 +93,36 @@ export class ExecutionService {
   async manualSend(
     conversationId: string,
     body: ManualSendMessageDto,
+    workspaceId?: string,
   ): Promise<ReplyExecutionResult> {
-    return this.replyExecutorService.manualSend(conversationId, body.text);
+    return this.replyExecutorService.manualSend(
+      conversationId,
+      body.text,
+      workspaceId,
+    );
   }
 
   async startManualHandoff(
     conversationId: string,
     body: StartHandoffExecutionDto,
+    workspaceId?: string,
   ) {
     return this.handoffExecutorService.startHandoff(
       conversationId,
       body.reason,
+      workspaceId,
     );
   }
 
-  async endManualHandoff(conversationId: string, body: EndHandoffExecutionDto) {
+  async endManualHandoff(
+    conversationId: string,
+    body: EndHandoffExecutionDto,
+    workspaceId?: string,
+  ) {
     return this.handoffExecutorService.endHandoff(
       conversationId,
       body.resumeMode ?? 'auto_reply',
+      workspaceId,
     );
   }
 

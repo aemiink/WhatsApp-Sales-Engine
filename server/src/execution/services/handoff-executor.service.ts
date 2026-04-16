@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { NotificationChannel, NotificationType } from '@prisma/client';
 import { AnalyticsService } from '../../analytics/analytics.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
@@ -17,7 +22,11 @@ export class HandoffExecutorService {
     private readonly notificationsService: NotificationsService,
   ) {}
 
-  async startHandoff(conversationId: string, reason?: string) {
+  async startHandoff(
+    conversationId: string,
+    reason?: string,
+    workspaceId?: string,
+  ) {
     const conversation = await this.prisma.conversation.findUnique({
       where: {
         id: conversationId,
@@ -30,6 +39,12 @@ export class HandoffExecutorService {
 
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
+    }
+
+    if (workspaceId && conversation.workspaceId !== workspaceId) {
+      throw new ForbiddenException(
+        'Conversation does not belong to workspace',
+      );
     }
 
     await this.aiModeService.setMode(conversationId, 'paused');
@@ -99,6 +114,7 @@ export class HandoffExecutorService {
   async endHandoff(
     conversationId: string,
     resumeMode: AiModeValue = 'auto_reply',
+    workspaceId?: string,
   ) {
     const conversation = await this.prisma.conversation.findUnique({
       where: {
@@ -112,6 +128,12 @@ export class HandoffExecutorService {
 
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
+    }
+
+    if (workspaceId && conversation.workspaceId !== workspaceId) {
+      throw new ForbiddenException(
+        'Conversation does not belong to workspace',
+      );
     }
 
     const active = await this.prisma.handoffSession.findFirst({

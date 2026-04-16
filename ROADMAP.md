@@ -1,0 +1,212 @@
+# WhatsApp Sales Engine — Düzeltme Roadmap
+
+Bu doküman, fazlara bölünmüş düzeltme planını ve her faz tamamlandığında ne yapıldığını izler. Her sprint biter bitmez "Durum" bölümüne özet eklenir.
+
+## Önerilen uygulama sırası
+
+1. Sprint 1 — Backend security (workspace isolation) ✅
+2. Sprint 2 — Client auth
+3. Sprint 3 — Client API layer
+4. Sprint 4 — AI setup entegrasyonu
+5. Sprint 5 — Live chat entegrasyonu
+6. Sprint 6 — Dashboard/analytics/leads
+7. Sprint 7 — Connection ekranı
+8. Sprint 8 — Notifications
+9. Sprint 9 — Queue
+10. Sprint 10 — Instagram ingestion
+11. Sprint 11 — Test stabilization
+12. Sprint 12 — Final UX + production prep
+
+---
+
+## Sprint 1 — Kritik backend güvenlik ve veri izolasyonu ✅ TAMAMLANDI
+
+### Hedef
+- Workspace isolation açıklarını kapatmak
+- Conversation bazlı endpoint'leri güvenli hale getirmek
+- Authenticated kullanıcı yalnızca kendi workspace'ine ait veriyi görebilir/değiştirebilir
+
+### Kapsam
+- `GET /conversations/:id`
+- `POST /conversations/:id/send`
+- `PATCH /conversations/:id/ai-mode`
+- `POST /conversations/:id/handoff`
+- `POST /conversations/:id/handoff/end`
+- `POST /handoff/sessions`
+- `PATCH /handoff/sessions/:sessionId/end`
+
+### Yapılanlar
+1. **Merkezi guard servisi eklendi**
+   - `server/src/common/services/workspace-access.service.ts` → `assertConversationInWorkspace`, `assertHandoffSessionInWorkspace`
+   - `NotFoundException` (kaynak yok) ve `ForbiddenException` (workspace mismatch) ayrımı
+   - `server/src/common/common.module.ts` → `@Global()` modül, AppModule'e bağlandı
+
+2. **Controller seviyesi ownership**
+   - `ConversationsController.detail` → `CurrentUser` + `workspaceId` filtresiyle `findFirst`
+   - `ExecutionController` → tüm 4 endpoint artık `user.workspaceId`'yi servise aktarıyor
+   - `HandoffController` → start/end endpoint'leri `user.workspaceId`'yi servise aktarıyor
+
+3. **Service seviyesi defense-in-depth**
+   - `ConversationsService.getConversationDetail(id, workspaceId?)` → workspace filtresiyle sorgu
+   - `AiModeService.setMode(id, mode, workspaceId?)` → update öncesi ownership assert
+   - `ReplyExecutorService.manualSend(id, text, workspaceId?)` → send öncesi ownership assert
+   - `HandoffExecutorService.startHandoff/endHandoff` → conversation workspaceId inline check
+   - `HandoffService.startSession/endSession` → conversation ve session ownership check
+   - `ExecutionService.manualSend / startManualHandoff / endManualHandoff` → workspaceId'yi alt servislere forward ediyor
+
+4. **Testler**
+   - `workspace-access.service.spec.ts` (yeni) — 6 senaryo: conversation & handoff-session için NotFound / Forbidden / success
+   - `ai-mode.service.spec.ts` — cross-workspace reject senaryosu eklendi
+   - `handoff-executor.service.spec.ts` — startHandoff ve endHandoff için Forbidden senaryoları
+   - `reply-executor.service.spec.ts` — manualSend Forbidden senaryosu + tüm mevcut testler yeni constructor imzasına güncellendi
+   - `ai-mode.service.spec.ts` / `reply-executor.service.spec.ts` / `handoff-executor.service.spec.ts` — WorkspaceAccessService mock'u eklendi
+
+### Done kriterleri (karşılanıyor)
+- ✅ Başka workspace'e ait conversation id verilince erişim reddediliyor (`ForbiddenException`)
+- ✅ Auth guard + ownership guard birlikte çalışıyor (JWT → role → workspace)
+- ✅ Service seviyesinde de kontrol var → controller bypass edilse bile koruma devam ediyor
+
+### Doğrulama
+- `tsc --noEmit -p tsconfig.build.json` → hata yok
+- `jest --config ./test/jest-unit.json` → 29 suite / 75 test passing
+
+### Değişen dosyalar
+- Yeni: `server/src/common/common.module.ts`, `server/src/common/services/workspace-access.service.ts`, `server/src/common/services/workspace-access.service.spec.ts`
+- Güncellendi: `server/src/app.module.ts`, `server/src/conversations/conversations.controller.ts`, `server/src/conversations/conversations.service.ts`, `server/src/execution/execution.controller.ts`, `server/src/execution/services/execution.service.ts`, `server/src/execution/services/ai-mode.service.ts`, `server/src/execution/services/reply-executor.service.ts`, `server/src/execution/services/handoff-executor.service.ts`, `server/src/handoff/handoff.controller.ts`, `server/src/handoff/handoff.service.ts`, ilgili `*.spec.ts` dosyaları
+
+### Notlar / Takip
+- `workspaceId` parametresi opsiyonel bırakıldı: webhook / queue gibi sistem-trusted internal akışlar `executeForInboundMessage` üzerinden çalıştığı için onları etkilemiyor. HTTP surface üzerinden gelen tüm çağrılarda controller `user.workspaceId`'yi her zaman dolduruyor.
+- E2E testleri DB gerektirdiği için lokal çalıştırılmadı; CI'da yeniden doğrulanmalı.
+
+---
+
+## Sprint 2 — Client auth ve gerçek session akışı
+
+### Hedef
+- Login sayfasını gerçek auth'a bağlamak
+- Token yönetimini kurmak
+- User/workspace context'i local fallback'ten çıkarmak
+
+### Kapsam / Yapılacaklar
+- `/auth/login` gerçek çağrı
+- Access/refresh token saklama
+- `/auth/me` endpoint ile session restore
+- Logout akışı
+- Client'ta `workspaceId` ve `userId` fallback'lerini kaldır
+- Request interceptor / auth header standardı
+
+### Done kriterleri
+- Kullanıcı login olabiliyor
+- Token ile protected endpoint'ler çalışıyor
+- Refresh sonrası session korunuyor
+- Demo fallback'e ihtiyaç kalmıyor
+
+### Durum
+Not started.
+
+---
+
+## Sprint 3 — Client API layer ve global data fetching düzeni
+
+### Hedef
+- Ekranlar aynı veri erişim mantığını kullansın
+- Mock state'ler temizlensin
+
+### Kapsam
+- Ortak API client + auth header otomatik ekleme
+- Reusable hook / service layer
+- Ortak loading / error / empty state pattern'i
+- Alanlar: conversations, brand context, training settings, analytics, notifications, WhatsApp connection, AI test/decision
+
+### Durum
+Not started.
+
+---
+
+## Sprint 4 — AI Setup ekranını backend'e bağla
+
+### Hedef
+- Website analizi, Instagram analizi, training settings, resolved brand context → hepsi gerçek API
+
+### Durum
+Not started.
+
+---
+
+## Sprint 5 — Live Chat ekranını gerçek conversation engine'e bağla
+
+### Hedef
+- Conversation list, thread, manual send, AI mode, handoff → gerçek API'lere bağlı
+
+### Durum
+Not started.
+
+---
+
+## Sprint 6 — Dashboard, Analytics ve Lead Management
+
+### Hedef
+- Overview / funnel / AI analytics + lead query + filtreler
+
+### Durum
+Not started.
+
+---
+
+## Sprint 7 — WhatsApp Connection ekranı
+
+### Hedef
+- Active connection görüntüleme, reconnect / remove / test, health state
+
+### Durum
+Not started.
+
+---
+
+## Sprint 8 — Notification sistemi
+
+### Hedef
+- Real notifications, unread/read state, SSE auth, polling fallback
+
+### Durum
+Not started.
+
+---
+
+## Sprint 9 — Gerçek queue altyapısı
+
+### Hedef
+- Memory queue → BullMQ + Redis, retry / backoff / DLQ, worker ayrımı
+
+### Durum
+Not started.
+
+---
+
+## Sprint 10 — Instagram source ingestion
+
+### Hedef
+- Bağımsız Instagram source ingestion, gerçek profile/caption çekme, snapshot
+
+### Durum
+Not started.
+
+---
+
+## Sprint 11 — Test stabilization
+
+### Hedef
+- Unit / integration / e2e / smoke gerçekten koşsun, provider mock'ları stabil
+
+### Durum
+Not started.
+
+---
+
+## Sprint 12 — Final UX + production checklist
+
+### Hedef
+- Mock kalıntıları temizle, loading/error/empty polish, email test, env validation, health/version
+
+### Durum
+Not started.

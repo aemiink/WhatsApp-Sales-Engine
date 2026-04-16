@@ -1,13 +1,28 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { AiMode } from '@prisma/client';
+import { WorkspaceAccessService } from '../../common/services/workspace-access.service';
 import { PrismaService } from '../../database/prisma.service';
 import { AiModeValue } from '../dto/set-ai-mode.dto';
 
 @Injectable()
 export class AiModeService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly workspaceAccessService: WorkspaceAccessService,
+  ) {}
 
-  async setMode(conversationId: string, mode: AiModeValue) {
+  async setMode(
+    conversationId: string,
+    mode: AiModeValue,
+    workspaceId?: string,
+  ) {
+    if (workspaceId) {
+      await this.workspaceAccessService.assertConversationInWorkspace(
+        conversationId,
+        workspaceId,
+      );
+    }
+
     const updated = await this.prisma.conversation.update({
       where: {
         id: conversationId,

@@ -35,8 +35,11 @@ export class ConversationsController {
   }
 
   @Get(':id')
-  async detail(@Param('id') id: string) {
-    const detail = await this.conversationsService.getConversationDetail(id);
+  async detail(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    const detail = await this.conversationsService.getConversationDetail(
+      id,
+      user.workspaceId,
+    );
 
     if (!detail) {
       throw new NotFoundException('Conversation not found');

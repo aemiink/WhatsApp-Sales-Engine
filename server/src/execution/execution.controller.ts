@@ -1,5 +1,7 @@
 import { Body, Controller, Param, Patch, Post } from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import type { RequestUser } from '../auth/interfaces/request-user.interface';
 import { EndHandoffExecutionDto } from './dto/end-handoff.dto';
 import { ManualSendMessageDto } from './dto/manual-send-message.dto';
 import { SetAiModeDto } from './dto/set-ai-mode.dto';
@@ -18,36 +20,56 @@ export class ExecutionController {
   @Roles('admin', 'agent')
   @Post(':id/send')
   async manualSend(
+    @CurrentUser() user: RequestUser,
     @Param('id') conversationId: string,
     @Body() body: ManualSendMessageDto,
   ): Promise<ReplyExecutionResult> {
-    return this.executionService.manualSend(conversationId, body);
+    return this.executionService.manualSend(
+      conversationId,
+      body,
+      user.workspaceId,
+    );
   }
 
   @Roles('admin', 'agent')
   @Patch(':id/ai-mode')
   async setAiMode(
+    @CurrentUser() user: RequestUser,
     @Param('id') conversationId: string,
     @Body() body: SetAiModeDto,
   ) {
-    return this.aiModeService.setMode(conversationId, body.mode);
+    return this.aiModeService.setMode(
+      conversationId,
+      body.mode,
+      user.workspaceId,
+    );
   }
 
   @Roles('admin', 'agent')
   @Post(':id/handoff')
   async startHandoff(
+    @CurrentUser() user: RequestUser,
     @Param('id') conversationId: string,
     @Body() body: StartHandoffExecutionDto,
   ) {
-    return this.executionService.startManualHandoff(conversationId, body);
+    return this.executionService.startManualHandoff(
+      conversationId,
+      body,
+      user.workspaceId,
+    );
   }
 
   @Roles('admin', 'agent')
   @Post(':id/handoff/end')
   async endHandoff(
+    @CurrentUser() user: RequestUser,
     @Param('id') conversationId: string,
     @Body() body: EndHandoffExecutionDto,
   ) {
-    return this.executionService.endManualHandoff(conversationId, body);
+    return this.executionService.endManualHandoff(
+      conversationId,
+      body,
+      user.workspaceId,
+    );
   }
 }

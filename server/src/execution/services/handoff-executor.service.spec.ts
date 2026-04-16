@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { HandoffExecutorService } from './handoff-executor.service';
 
 describe('HandoffExecutorService', () => {
@@ -87,5 +88,69 @@ describe('HandoffExecutorService', () => {
       'auto_reply',
     );
     expect(result.ended).toBe(true);
+  });
+
+  it('rejects startHandoff when workspace mismatches', async () => {
+    const aiModeServiceMock = {
+      setMode: jest.fn(),
+    };
+
+    const prismaMock = {
+      conversation: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'conv-1',
+          workspaceId: 'ws-owner',
+        }),
+      },
+      handoffSession: {
+        findFirst: jest.fn(),
+        create: jest.fn(),
+      },
+    };
+
+    const service = new HandoffExecutorService(
+      prismaMock as never,
+      aiModeServiceMock as never,
+      { safeTrack: jest.fn() } as never,
+      { createAndDispatch: jest.fn() } as never,
+    );
+
+    await expect(
+      service.startHandoff('conv-1', undefined, 'ws-attacker'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(aiModeServiceMock.setMode).not.toHaveBeenCalled();
+    expect(prismaMock.handoffSession.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects endHandoff when workspace mismatches', async () => {
+    const aiModeServiceMock = { setMode: jest.fn() };
+
+    const prismaMock = {
+      conversation: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'conv-1',
+          workspaceId: 'ws-owner',
+        }),
+      },
+      handoffSession: {
+        findFirst: jest.fn(),
+        update: jest.fn(),
+      },
+    };
+
+    const service = new HandoffExecutorService(
+      prismaMock as never,
+      aiModeServiceMock as never,
+      { safeTrack: jest.fn() } as never,
+      { createAndDispatch: jest.fn() } as never,
+    );
+
+    await expect(
+      service.endHandoff('conv-1', 'auto_reply', 'ws-attacker'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(aiModeServiceMock.setMode).not.toHaveBeenCalled();
+    expect(prismaMock.handoffSession.update).not.toHaveBeenCalled();
   });
 });

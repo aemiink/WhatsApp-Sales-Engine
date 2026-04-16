@@ -6,6 +6,7 @@ import {
   SenderType,
 } from '@prisma/client';
 import { AnalyticsService } from '../../analytics/analytics.service';
+import { WorkspaceAccessService } from '../../common/services/workspace-access.service';
 import { ConversationsService } from '../../conversations/conversations.service';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
@@ -31,6 +32,7 @@ export class ReplyExecutorService {
     private readonly whatsappMessageSenderService: WhatsAppMessageSenderService,
     private readonly analyticsService: AnalyticsService,
     private readonly notificationsService: NotificationsService,
+    private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
 
   async executeDecisionReply(
@@ -148,10 +150,18 @@ export class ReplyExecutorService {
   async manualSend(
     conversationId: string,
     text: string,
+    workspaceId?: string,
   ): Promise<ReplyExecutionResult> {
     const trimmedText = text.trim();
     if (trimmedText.length === 0) {
       return this.skip('empty_manual_text');
+    }
+
+    if (workspaceId) {
+      await this.workspaceAccessService.assertConversationInWorkspace(
+        conversationId,
+        workspaceId,
+      );
     }
 
     const conversation =

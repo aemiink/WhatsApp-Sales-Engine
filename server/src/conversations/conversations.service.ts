@@ -100,10 +100,11 @@ export class ConversationsService {
     });
   }
 
-  async getConversationDetail(conversationId: string) {
-    return this.prisma.conversation.findUnique({
+  async getConversationDetail(conversationId: string, workspaceId?: string) {
+    return this.prisma.conversation.findFirst({
       where: {
         id: conversationId,
+        ...(workspaceId ? { workspaceId } : {}),
       },
       include: {
         messages: {

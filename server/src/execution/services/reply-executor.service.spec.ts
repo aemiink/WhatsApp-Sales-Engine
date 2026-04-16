@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { ReplyExecutorService } from './reply-executor.service';
 
 const baseDecision = {
@@ -38,6 +39,12 @@ describe('ReplyExecutorService', () => {
       {
         createAndDispatch: jest.fn().mockResolvedValue(undefined),
       } as never,
+      {
+        assertConversationInWorkspace: jest.fn().mockResolvedValue({
+          id: 'conv-1',
+          workspaceId: 'ws-1',
+        }),
+      } as never,
     );
 
     const result = await service.executeDecisionReply('conv-1', baseDecision);
@@ -75,6 +82,12 @@ describe('ReplyExecutorService', () => {
       } as never,
       {
         createAndDispatch: jest.fn().mockResolvedValue(undefined),
+      } as never,
+      {
+        assertConversationInWorkspace: jest.fn().mockResolvedValue({
+          id: 'conv-1',
+          workspaceId: 'ws-1',
+        }),
       } as never,
     );
 
@@ -115,6 +128,12 @@ describe('ReplyExecutorService', () => {
       {
         createAndDispatch: jest.fn().mockResolvedValue(undefined),
       } as never,
+      {
+        assertConversationInWorkspace: jest.fn().mockResolvedValue({
+          id: 'conv-1',
+          workspaceId: 'ws-1',
+        }),
+      } as never,
     );
 
     const result = await service.executeDecisionReply('conv-1', baseDecision);
@@ -123,5 +142,39 @@ describe('ReplyExecutorService', () => {
       skipped: true,
       reason: 'duplicate_within_debounce_window',
     });
+  });
+
+  it('rejects manualSend when workspace does not own conversation', async () => {
+    const sendMock = jest.fn();
+    const service = new ReplyExecutorService(
+      {
+        getConversationById: jest.fn(),
+      } as never,
+      {
+        message: { findFirst: jest.fn() },
+      } as never,
+      {
+        getMode: jest.fn(),
+      } as never,
+      {
+        sendTextMessage: sendMock,
+      } as never,
+      {
+        safeTrack: jest.fn(),
+      } as never,
+      {
+        createAndDispatch: jest.fn(),
+      } as never,
+      {
+        assertConversationInWorkspace: jest
+          .fn()
+          .mockRejectedValue(new ForbiddenException()),
+      } as never,
+    );
+
+    await expect(
+      service.manualSend('conv-1', 'hi', 'ws-attacker'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(sendMock).not.toHaveBeenCalled();
   });
 });

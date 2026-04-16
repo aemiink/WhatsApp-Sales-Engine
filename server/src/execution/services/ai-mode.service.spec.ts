@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { AiModeService } from './ai-mode.service';
 
 describe('AiModeService', () => {
@@ -14,7 +15,17 @@ describe('AiModeService', () => {
       },
     };
 
-    const service = new AiModeService(prismaMock as never);
+    const workspaceAccessMock = {
+      assertConversationInWorkspace: jest.fn().mockResolvedValue({
+        id: 'conv-1',
+        workspaceId: 'ws-1',
+      }),
+    };
+
+    const service = new AiModeService(
+      prismaMock as never,
+      workspaceAccessMock as never,
+    );
 
     const updated = await service.setMode('conv-1', 'paused');
     const mode = await service.getMode('conv-1');
@@ -24,5 +35,30 @@ describe('AiModeService', () => {
       mode: 'paused',
     });
     expect(mode).toBe('auto_reply');
+  });
+
+  it('rejects setMode when conversation belongs to another workspace', async () => {
+    const prismaMock = {
+      conversation: {
+        update: jest.fn(),
+        findUnique: jest.fn(),
+      },
+    };
+
+    const workspaceAccessMock = {
+      assertConversationInWorkspace: jest
+        .fn()
+        .mockRejectedValue(new ForbiddenException()),
+    };
+
+    const service = new AiModeService(
+      prismaMock as never,
+      workspaceAccessMock as never,
+    );
+
+    await expect(
+      service.setMode('conv-1', 'paused', 'ws-attacker'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prismaMock.conversation.update).not.toHaveBeenCalled();
   });
 });

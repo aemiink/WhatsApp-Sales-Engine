@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { BrandContextModule } from './brand-context/brand-context.module';
+import { CommonModule } from './common/common.module';
 import { AppConfigModule } from './config/app-config.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { DatabaseModule } from './database/database.module';
@@ -23,6 +24,7 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     AppConfigModule,
     AuthModule,
     DatabaseModule,
+    CommonModule,
     ConversationsModule,
     BrandContextModule,
     AiBrainModule,
