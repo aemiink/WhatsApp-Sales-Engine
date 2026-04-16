@@ -103,6 +103,7 @@ export function AISetup() {
           title="AI Setup"
           description="Form doldurmak yerine AI'i adim adim egit. Her adimda neden gerekli oldugunu gor ve kaydet-devam et akisini kullan."
           badge={`Adim ${stepIndex(currentStep) + 1}/${steps.length}`}
+          helpKey="ai-setup"
         />
 
         <div className="mb-5 rounded-xl border border-border bg-card/60 p-4">

@@ -1,5 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { NotificationChannel, NotificationType } from '@prisma/client';
 import { AnalyticsService } from '../../analytics/analytics.service';
+import { NotificationsService } from '../../notifications/services/notifications.service';
 import { PrismaService } from '../../database/prisma.service';
 import { AiModeValue } from '../dto/set-ai-mode.dto';
 import { AiModeService } from './ai-mode.service';
@@ -12,6 +14,7 @@ export class HandoffExecutorService {
     private readonly prisma: PrismaService,
     private readonly aiModeService: AiModeService,
     private readonly analyticsService: AnalyticsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async startHandoff(conversationId: string, reason?: string) {
@@ -67,6 +70,20 @@ export class HandoffExecutorService {
       conversationId,
       type: 'handoff_started',
       payloadJson: {
+        handoffSessionId: created.id,
+        reason: reason ?? null,
+      },
+    });
+
+    await this.notificationsService.createAndDispatch({
+      workspaceId: conversation.workspaceId,
+      type: NotificationType.HANDOFF_STARTED,
+      channel: NotificationChannel.BOTH,
+      title: 'Temsilci devri baslatildi',
+      message:
+        'AI, bu konusmada handoff karari verdi. Canli panelden gorusmeyi devralabilirsiniz.',
+      payload: {
+        conversationId,
         handoffSessionId: created.id,
         reason: reason ?? null,
       },

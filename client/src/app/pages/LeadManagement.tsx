@@ -139,6 +139,7 @@ export function LeadManagement() {
           title="Lead Management"
           description="Lead tablosunu sade tut, filtrelerle hizli karar al, satir aksiyonlariyla operasyonu hizlandir."
           badge="Mini CRM"
+          helpKey="lead-management"
           actions={[
             {
               id: 'add',

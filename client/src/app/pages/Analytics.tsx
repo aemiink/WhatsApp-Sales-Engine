@@ -63,6 +63,7 @@ export function Analytics() {
           title="Analytics"
           description="Veriyi hizli anla: once genel gorunum, sonra funnel, AI performansi ve konusma icgoruleri."
           badge="Ajans ve operasyon gorunumu"
+          helpKey="analytics"
         />
 
         <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">

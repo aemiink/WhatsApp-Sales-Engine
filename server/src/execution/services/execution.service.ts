@@ -1,7 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { LeadStage } from '@prisma/client';
+import {
+  LeadStage,
+  NotificationChannel,
+  NotificationType,
+} from '@prisma/client';
 import { AnalyticsService } from '../../analytics/analytics.service';
 import { ConversationsService } from '../../conversations/conversations.service';
+import { NotificationsService } from '../../notifications/services/notifications.service';
 import { SalesEngineService } from '../../sales-engine/sales-engine.service';
 import { EndHandoffExecutionDto } from '../dto/end-handoff.dto';
 import { ManualSendMessageDto } from '../dto/manual-send-message.dto';
@@ -20,6 +25,7 @@ export class ExecutionService {
     private readonly analyticsService: AnalyticsService,
     private readonly replyExecutorService: ReplyExecutorService,
     private readonly handoffExecutorService: HandoffExecutorService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async executeForInboundMessage(
@@ -56,6 +62,7 @@ export class ExecutionService {
       await this.syncLeadStage(conversationId, decision.leadStage, {
         currentLeadStage: conversation.leadStage,
         workspaceId: conversation.workspaceId,
+        phoneNumber: conversation.phoneNumber,
       });
     }
 
@@ -113,6 +120,7 @@ export class ExecutionService {
     input: {
       currentLeadStage: LeadStage;
       workspaceId: string;
+      phoneNumber: string;
     },
   ): Promise<void> {
     const nextLeadStage = this.toPrismaLeadStage(targetStage);
@@ -134,6 +142,23 @@ export class ExecutionService {
         to: this.toStageLabel(nextLeadStage),
       },
     });
+
+    if (nextLeadStage === LeadStage.HOT) {
+      await this.notificationsService.createAndDispatch({
+        workspaceId: input.workspaceId,
+        type: NotificationType.LEAD_HOT,
+        channel: NotificationChannel.BOTH,
+        title: 'Yeni hot lead tespit edildi',
+        message:
+          'AI, kapanisa yakin bir gorusme algiladi. Hizli temsilci takibi onerilir.',
+        payload: {
+          conversationId,
+          leadLabel: input.phoneNumber,
+          fromStage: this.toStageLabel(input.currentLeadStage),
+          toStage: this.toStageLabel(nextLeadStage),
+        },
+      });
+    }
   }
 
   private toPrismaLeadStage(stage: string): LeadStage {

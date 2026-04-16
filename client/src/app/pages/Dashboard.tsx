@@ -114,6 +114,7 @@ export function Dashboard() {
           title="Operations Overview"
           description="Bugun operasyon performansini tek bakista gor, kritik gorusmelere hizli gecis yap."
           badge="AI satış sistemi aktif"
+          helpKey="dashboard"
           actions={[
             {
               id: 'chat',

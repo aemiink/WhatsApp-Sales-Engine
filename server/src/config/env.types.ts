@@ -32,4 +32,7 @@ export interface EnvironmentVariables {
   WHATSAPP_BUSINESS_ACCOUNT_ID?: string;
   WHATSAPP_WEBHOOK_VERIFY_TOKEN: string;
   META_GRAPH_API_VERSION: string;
+  RESEND_API_KEY?: string;
+  EMAIL_FROM_ADDRESS?: string;
+  APP_BASE_URL?: string;
 }

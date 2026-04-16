@@ -10,6 +10,7 @@ export function AIKnowledge() {
           title="AI Knowledge / Training"
           description="AI'in bildigi kaynaklari blok bazli yonet, editable alanlarla guvenli sekilde guncelle."
           badge="Son guncelleme: 2 saat once"
+          helpKey="ai-knowledge"
           actions={[
             {
               id: 'reanalyze',

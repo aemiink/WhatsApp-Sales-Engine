@@ -5,11 +5,13 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
+import { NotificationChannel, NotificationType } from '@prisma/client';
 import { AnalyticsService } from '../../analytics/analytics.service';
 import { ConversationsService } from '../../conversations/conversations.service';
 import { MessagesService } from '../../conversations/messages.service';
 import { DEFAULT_WORKSPACE_ID } from '../../common/constants/workspace.constants';
 import { AppConfigService } from '../../config/app-config.service';
+import { NotificationsService } from '../../notifications/services/notifications.service';
 import { SendTextWhatsAppMessageDto } from '../dto/send-text-whatsapp-message.dto';
 import { maskPhoneNumber } from '../utils/phone-mask.util';
 import { WHATSAPP_PROVIDER_TOKEN } from '../providers/whatsapp-provider.interface';
@@ -38,6 +40,7 @@ export class WhatsAppMessageSenderService {
     private readonly conversationsService: ConversationsService,
     private readonly messagesService: MessagesService,
     private readonly analyticsService: AnalyticsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async sendTextMessage(
@@ -57,11 +60,38 @@ export class WhatsAppMessageSenderService {
 
     this.assertOutboundRateLimit(workspaceId, input.to);
 
-    const response = await this.sendWithRetry({
-      to: input.to,
-      text: input.text,
-      workspaceId,
-    });
+    let response: SendTextMessageResult;
+    try {
+      response = await this.sendWithRetry({
+        to: input.to,
+        text: input.text,
+        workspaceId,
+      });
+    } catch (error: unknown) {
+      await this.analyticsService.safeTrack({
+        workspaceId,
+        type: 'message_send_failed',
+        payloadJson: {
+          to: maskPhoneNumber(input.to),
+          errorMessage: this.toErrorMessage(error),
+        },
+      });
+
+      await this.notificationsService.createAndDispatch({
+        workspaceId,
+        type: NotificationType.CONNECTION_ERROR,
+        channel: NotificationChannel.BOTH,
+        title: 'WhatsApp baglanti hatasi',
+        message:
+          'Mesaj iletimi basarisiz oldu. Baglantiyi test edip yeniden baglanmayi deneyin.',
+        payload: {
+          to: maskPhoneNumber(input.to),
+          errorMessage: this.toErrorMessage(error),
+        },
+      });
+
+      throw error;
+    }
 
     const conversation = await this.conversationsService.findOrCreateByPhone(
       workspaceId,
@@ -152,5 +182,13 @@ export class WhatsAppMessageSenderService {
     await new Promise((resolve) => {
       setTimeout(resolve, delayMs);
     });
+  }
+
+  private toErrorMessage(error: unknown): string {
+    if (error instanceof Error && error.message.length > 0) {
+      return error.message;
+    }
+
+    return 'unknown_error';
   }
 }

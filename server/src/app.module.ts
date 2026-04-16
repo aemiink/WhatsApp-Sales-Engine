@@ -13,6 +13,7 @@ import { ConversationsModule } from './conversations/conversations.module';
 import { DatabaseModule } from './database/database.module';
 import { ExecutionModule } from './execution/execution.module';
 import { HandoffModule } from './handoff/handoff.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { SalesEngineModule } from './sales-engine/sales-engine.module';
 import { TrainingSettingsModule } from './training-settings/training-settings.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
@@ -29,6 +30,7 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     ExecutionModule,
     WhatsappModule,
     HandoffModule,
+    NotificationsModule,
     AnalyticsModule,
     TrainingSettingsModule,
   ],

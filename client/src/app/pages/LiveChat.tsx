@@ -173,6 +173,7 @@ export function LiveChat() {
           title="Live Chat Cockpit"
           description="Konusma durumu, AI ongorusu ve kritik aksiyonlar tek ekranda."
           badge="Canli operasyon paneli"
+          helpKey="live-chat"
         />
 
         <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)_360px]">

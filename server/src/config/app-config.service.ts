@@ -163,4 +163,23 @@ export class AppConfigService {
   get metaGraphApiVersion(): string {
     return this.configService.getOrThrow<string>('META_GRAPH_API_VERSION');
   }
+
+  get resendApiKey(): string | undefined {
+    const value = this.configService.get<string>('RESEND_API_KEY');
+    return value && value.length > 0 ? value : undefined;
+  }
+
+  get emailFromAddress(): string | undefined {
+    const value = this.configService.get<string>('EMAIL_FROM_ADDRESS');
+    return value && value.length > 0 ? value : undefined;
+  }
+
+  get appBaseUrl(): string {
+    const value = this.configService.get<string>('APP_BASE_URL');
+    if (value && value.length > 0) {
+      return value;
+    }
+
+    return 'http://localhost:5173';
+  }
 }

@@ -65,4 +65,7 @@ export const envValidationSchema = Joi.object({
     .trim()
     .pattern(/^v\d+\.\d+$/)
     .required(),
+  RESEND_API_KEY: Joi.string().trim().optional().allow(''),
+  EMAIL_FROM_ADDRESS: Joi.string().trim().email().optional().allow(''),
+  APP_BASE_URL: Joi.string().trim().uri().optional().allow(''),
 }).unknown(true);

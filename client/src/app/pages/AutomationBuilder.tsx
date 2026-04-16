@@ -97,6 +97,7 @@ export function AutomationBuilder() {
           title="Automation Builder"
           description="Node tiplerini net ayir, karmasikligi azalt, operasyon ekibi icin okunur akislar olustur."
           badge="MVP flow view"
+          helpKey="automation-builder"
           actions={[
             {
               id: 'save',

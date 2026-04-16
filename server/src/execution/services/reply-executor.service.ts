@@ -1,8 +1,14 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { MessageDirection, SenderType } from '@prisma/client';
+import {
+  MessageDirection,
+  NotificationChannel,
+  NotificationType,
+  SenderType,
+} from '@prisma/client';
 import { AnalyticsService } from '../../analytics/analytics.service';
 import { ConversationsService } from '../../conversations/conversations.service';
 import { PrismaService } from '../../database/prisma.service';
+import { NotificationsService } from '../../notifications/services/notifications.service';
 import { FinalSalesDecision } from '../../sales-engine/types/final-sales-decision.types';
 import { WhatsAppMessageSenderService } from '../../whatsapp/services/whatsapp-message-sender.service';
 import { AiModeService } from './ai-mode.service';
@@ -24,6 +30,7 @@ export class ReplyExecutorService {
     private readonly aiModeService: AiModeService,
     private readonly whatsappMessageSenderService: WhatsAppMessageSenderService,
     private readonly analyticsService: AnalyticsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async executeDecisionReply(
@@ -85,11 +92,38 @@ export class ReplyExecutorService {
       });
     }
 
-    await this.whatsappMessageSenderService.sendTextMessage({
-      workspaceId: conversation.workspaceId,
-      to: conversation.phoneNumber,
-      text,
-    });
+    try {
+      await this.whatsappMessageSenderService.sendTextMessage({
+        workspaceId: conversation.workspaceId,
+        to: conversation.phoneNumber,
+        text,
+      });
+    } catch (error: unknown) {
+      await this.analyticsService.safeTrack({
+        workspaceId: conversation.workspaceId,
+        conversationId,
+        type: 'reply_failed',
+        payloadJson: {
+          ...basePayload,
+          errorMessage: this.toErrorMessage(error),
+        },
+      });
+
+      await this.notificationsService.createAndDispatch({
+        workspaceId: conversation.workspaceId,
+        type: NotificationType.REPLY_FAILED,
+        channel: NotificationChannel.BOTH,
+        title: 'AI reply gonderilemedi',
+        message:
+          'AI cevabi WhatsApp kanalina iletilemedi. Manuel takip veya yeniden deneme onerilir.',
+        payload: {
+          conversationId,
+          errorMessage: this.toErrorMessage(error),
+        },
+      });
+
+      throw error;
+    }
 
     await this.analyticsService.safeTrack({
       workspaceId: conversation.workspaceId,
@@ -186,5 +220,13 @@ export class ReplyExecutorService {
       skipped: true,
       reason,
     };
+  }
+
+  private toErrorMessage(error: unknown): string {
+    if (error instanceof Error && error.message.length > 0) {
+      return error.message;
+    }
+
+    return 'unknown_error';
   }
 }

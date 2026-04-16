@@ -1,4 +1,8 @@
 import { type ReactNode } from 'react';
+import { PageHelpModal } from '../help/PageHelpModal';
+import { PageHelpTrigger } from '../help/PageHelpTrigger';
+import { PageHelpKey } from '../help/help-content';
+import { usePageHelp } from '../help/usePageHelp';
 
 interface PageHeaderAction {
   id: string;
@@ -13,6 +17,7 @@ interface PageHeaderProps {
   description: string;
   badge?: string;
   actions?: PageHeaderAction[];
+  helpKey?: PageHelpKey;
 }
 
 const actionVariantClass = {
@@ -27,9 +32,17 @@ export function PageHeader({
   description,
   badge,
   actions,
+  helpKey,
 }: PageHeaderProps) {
+  const help = usePageHelp(helpKey);
+
   return (
     <header className="mb-6 space-y-4">
+      <PageHelpModal
+        open={help.isOpen}
+        content={help.content}
+        onClose={help.close}
+      />
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{title}</h1>
@@ -38,13 +51,14 @@ export function PageHeader({
           </p>
         </div>
 
-        {(badge || actions?.length) && (
+        {(badge || actions?.length || help.content) && (
           <div className="flex flex-wrap items-center gap-2">
             {badge ? (
               <span className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                 {badge}
               </span>
             ) : null}
+            {help.content ? <PageHelpTrigger onClick={help.open} /> : null}
             {actions?.map((action) => (
               <button
                 key={action.id}

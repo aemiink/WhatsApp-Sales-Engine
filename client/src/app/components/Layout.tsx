@@ -13,6 +13,7 @@ import {
   Users,
   Zap,
 } from 'lucide-react';
+import { NotificationBell } from './notifications/NotificationBell';
 
 interface NavigationItem {
   name: string;
@@ -90,6 +91,10 @@ const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
 export function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const currentItem =
+    navigationGroups
+      .flatMap((group) => group.items)
+      .find((item) => item.href === location.pathname) ?? null;
 
   const handleLogout = () => {
     // Clear any auth tokens/session data here
@@ -203,18 +208,29 @@ export function Layout() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
-        <div className="border-b border-border bg-card/65 px-4 py-3 xl:hidden">
+        <div className="sticky top-0 z-40 border-b border-border bg-card/85 px-4 py-3 backdrop-blur">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Zap className="h-4 w-4 text-primary" />
-              <span className="text-sm font-semibold">WhatsApp Sales Engine</span>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                {currentItem?.helper ?? 'Operations'}
+              </p>
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-primary" />
+                <span className="text-sm font-semibold">
+                  {currentItem?.name ?? 'WhatsApp Sales Engine'}
+                </span>
+              </div>
             </div>
-            <Link
-              to="/chat"
-              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-black"
-            >
-              Live Chat
-            </Link>
+
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+              <Link
+                to="/chat"
+                className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-black"
+              >
+                Live Chat
+              </Link>
+            </div>
           </div>
         </div>
         <Outlet />

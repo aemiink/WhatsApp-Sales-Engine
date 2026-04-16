@@ -58,6 +58,22 @@ enum MessageStatus {
   UNKNOWN   @map("unknown")
 }
 
+enum NotificationType {
+  LEAD_HOT        @map("lead_hot")
+  HANDOFF_STARTED @map("handoff_started")
+  REPLY_FAILED    @map("reply_failed")
+  CONNECTION_ERROR @map("connection_error")
+  DAILY_SUMMARY   @map("daily_summary")
+  WEEKLY_SUMMARY  @map("weekly_summary")
+  INFO            @map("info")
+}
+
+enum NotificationChannel {
+  IN_APP @map("in_app")
+  EMAIL  @map("email")
+  BOTH   @map("both")
+}
+
 model Conversation {
   id              String             @id @default(uuid())
   workspaceId     String
@@ -237,4 +253,24 @@ model AnalyticsEvent {
   @@index([workspaceId, type, createdAt])
   @@index([workspaceId, conversationId, createdAt])
   @@map("analytics_events")
+}
+
+model Notification {
+  id         String              @id @default(uuid())
+  workspaceId String
+  userId     String?
+  type       NotificationType
+  channel    NotificationChannel @default(IN_APP)
+  title      String
+  message    String
+  isRead     Boolean             @default(false)
+  payloadJson Json?
+  emailSentAt DateTime?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, isRead, createdAt])
+  @@index([workspaceId, userId, isRead, createdAt])
+  @@map("notifications")
 }

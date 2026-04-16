@@ -35,6 +35,9 @@ describe('ReplyExecutorService', () => {
       {
         safeTrack: jest.fn().mockResolvedValue(undefined),
       } as never,
+      {
+        createAndDispatch: jest.fn().mockResolvedValue(undefined),
+      } as never,
     );
 
     const result = await service.executeDecisionReply('conv-1', baseDecision);
@@ -69,6 +72,9 @@ describe('ReplyExecutorService', () => {
       } as never,
       {
         safeTrack: jest.fn().mockResolvedValue(undefined),
+      } as never,
+      {
+        createAndDispatch: jest.fn().mockResolvedValue(undefined),
       } as never,
     );
 
@@ -105,6 +111,9 @@ describe('ReplyExecutorService', () => {
       } as never,
       {
         safeTrack: jest.fn().mockResolvedValue(undefined),
+      } as never,
+      {
+        createAndDispatch: jest.fn().mockResolvedValue(undefined),
       } as never,
     );
 

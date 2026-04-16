@@ -30,6 +30,9 @@ describe('HandoffExecutorService', () => {
       {
         safeTrack: jest.fn().mockResolvedValue(undefined),
       } as never,
+      {
+        createAndDispatch: jest.fn().mockResolvedValue(undefined),
+      } as never,
     );
 
     const result = await service.startHandoff('conv-1');
@@ -70,6 +73,9 @@ describe('HandoffExecutorService', () => {
       aiModeServiceMock as never,
       {
         safeTrack: jest.fn().mockResolvedValue(undefined),
+      } as never,
+      {
+        createAndDispatch: jest.fn().mockResolvedValue(undefined),
       } as never,
     );
 

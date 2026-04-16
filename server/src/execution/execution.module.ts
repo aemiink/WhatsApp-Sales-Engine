@@ -2,6 +2,7 @@ import { forwardRef, Module } from '@nestjs/common';
 import { AnalyticsModule } from '../analytics/analytics.module';
 import { AppConfigModule } from '../config/app-config.module';
 import { ConversationsModule } from '../conversations/conversations.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { SalesEngineModule } from '../sales-engine/sales-engine.module';
 import { WhatsappModule } from '../whatsapp/whatsapp.module';
 import { ExecutionController } from './execution.controller';
@@ -16,6 +17,7 @@ import { ReplyExecutorService } from './services/reply-executor.service';
     AnalyticsModule,
     AppConfigModule,
     ConversationsModule,
+    NotificationsModule,
     SalesEngineModule,
     forwardRef(() => WhatsappModule),
   ],

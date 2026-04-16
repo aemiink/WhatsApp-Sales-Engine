@@ -22,6 +22,7 @@ export function Connection() {
           title="WhatsApp Connection"
           description="Baglanti durumunu teknik jargon olmadan gor, test et, gerekirse yeniden bagla."
           badge={isConnected ? 'Baglanti aktif' : 'Baglanti yok'}
+          helpKey="connection"
         />
 
         <section

@@ -44,6 +44,9 @@ describe('ExecutionService', () => {
           alreadyActive: false,
         }),
       } as never,
+      {
+        createAndDispatch: jest.fn().mockResolvedValue(undefined),
+      } as never,
     );
 
     const result = await service.executeForInboundMessage('conv-1', 'msg-1');
