@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum LeadStage {
+  NEW       @map("new")
+  QUALIFIED @map("qualified")
+  HOT       @map("hot")
+  LOST      @map("lost")
+  SUPPORT   @map("support")
+}
+
+enum ConversationStatus {
+  ACTIVE @map("active")
+  CLOSED @map("closed")
+}
+
+enum SenderType {
+  USER  @map("user")
+  AI    @map("ai")
+  HUMAN @map("human")
+}
+
+model Conversation {
+  id              String             @id @default(uuid())
+  workspaceId     String
+  phoneNumber     String
+  leadStage       LeadStage          @default(NEW)
+  status          ConversationStatus @default(ACTIVE)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  messages        Message[]
+  handoffSessions HandoffSession[]
+
+  @@index([workspaceId, phoneNumber])
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  senderType     SenderType
+  content        String
+  rawPayload     Json?
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+model BrandContext {
+  id         String   @id @default(uuid())
+  workspaceId String  @unique
+  tone       String?
+  salesStyle String?
+  dataJson   Json?
+  createdAt  DateTime @default(now())
+
+  @@map("brand_contexts")
+}
+
+model TrainingSetting {
+  id           String   @id @default(uuid())
+  workspaceId  String   @unique
+  faqJson      Json?
+  productsJson Json?
+  rulesJson    Json?
+  createdAt    DateTime @default(now())
+
+  @@map("training_settings")
+}
+
+model WhatsAppConnection {
+  id                   String   @id @default(uuid())
+  workspaceId          String   @unique
+  phoneNumber          String
+  accessTokenEncrypted String
+  metadataJson         Json?
+  createdAt            DateTime @default(now())
+
+  @@map("whatsapp_connections")
+}
+
+model HandoffSession {
+  id             String       @id @default(uuid())
+  conversationId String
+  startedAt      DateTime     @default(now())
+  endedAt        DateTime?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, startedAt])
+  @@map("handoff_sessions")
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(uuid())
+  workspaceId String
+  type       String
+  payloadJson Json?
+  createdAt  DateTime @default(now())
+
+  @@index([workspaceId, type, createdAt])
+  @@map("analytics_events")
+}
