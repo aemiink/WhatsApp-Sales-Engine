@@ -1,0 +1,10 @@
+{
+  "detectedIntent": "price_inquiry",
+  "leadStage": "qualified",
+  "objectionDetected": null,
+  "suggestedReply": "Merhaba, fiyat bilgisi paylaşabilirim. Yaklaşık bütçenizi öğrenebilir miyim?",
+  "shouldSendReply": true,
+  "shouldHandoff": false,
+  "nextBestAction": "ask_budget",
+  "confidence": 0.83
+}

@@ -1,0 +1,11 @@
+{
+  "workspaceId": "default-workspace",
+  "conversation": {
+    "phoneNumber": "905551112233",
+    "leadStage": "new",
+    "aiMode": "auto_reply"
+  },
+  "inboundMessage": {
+    "text": "Merhaba, fiyat bilgisi alabilir miyim?"
+  }
+}

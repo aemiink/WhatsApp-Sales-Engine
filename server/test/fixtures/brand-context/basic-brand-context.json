@@ -1,0 +1,9 @@
+{
+  "workspaceId": "default-workspace",
+  "tone": "friendly",
+  "salesStyle": "consultative",
+  "dataJson": {
+    "targetAudience": "SMB founders",
+    "valueProps": ["Hızlı teslimat", "7/24 destek"]
+  }
+}

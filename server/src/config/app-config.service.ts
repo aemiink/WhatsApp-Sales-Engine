@@ -54,7 +54,21 @@ export class AppConfigService {
   }
 
   get authBypassInTest(): boolean {
-    return this.configService.getOrThrow<boolean>('AUTH_BYPASS_IN_TEST');
+    const value = this.configService.getOrThrow<boolean | string>(
+      'AUTH_BYPASS_IN_TEST',
+    );
+
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    return (
+      normalized === 'true' ||
+      normalized === '1' ||
+      normalized === 'yes' ||
+      normalized === 'on'
+    );
   }
 
   get aiDefaultProvider(): AiDefaultProvider {
