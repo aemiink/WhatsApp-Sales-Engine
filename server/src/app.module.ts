@@ -7,6 +7,7 @@ import { BrandContextModule } from './brand-context/brand-context.module';
 import { AppConfigModule } from './config/app-config.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { DatabaseModule } from './database/database.module';
+import { ExecutionModule } from './execution/execution.module';
 import { HandoffModule } from './handoff/handoff.module';
 import { SalesEngineModule } from './sales-engine/sales-engine.module';
 import { TrainingSettingsModule } from './training-settings/training-settings.module';
@@ -20,6 +21,7 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     BrandContextModule,
     AiBrainModule,
     SalesEngineModule,
+    ExecutionModule,
     WhatsappModule,
     HandoffModule,
     AnalyticsModule,

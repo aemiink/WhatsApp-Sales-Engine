@@ -1,10 +1,11 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AppConfigService } from '../../config/app-config.service';
 import { ConversationsService } from '../../conversations/conversations.service';
 import { MessageStatusService } from '../../conversations/message-status.service';
 import { MessagesService } from '../../conversations/messages.service';
 import { DEFAULT_WORKSPACE_ID } from '../../common/constants/workspace.constants';
+import { ExecutionService } from '../../execution/services/execution.service';
 import {
   NormalizedInboundEventWithDedup,
   NormalizedWhatsAppEvent,
@@ -61,6 +62,8 @@ export class WhatsAppWebhookService {
     private readonly conversationsService: ConversationsService,
     private readonly messagesService: MessagesService,
     private readonly messageStatusService: MessageStatusService,
+    @Inject(forwardRef(() => ExecutionService))
+    private readonly executionService: ExecutionService,
   ) {}
 
   verifyWebhook(query: WhatsAppWebhookVerificationQueryDto): string {
@@ -182,10 +185,23 @@ export class WhatsAppWebhookService {
             normalizedEvent.fromPhoneNumber,
           );
 
-        await this.messagesService.createInboundMessage({
-          conversationId: conversation.id,
-          event: normalizedEvent,
-        });
+        const persistedMessage =
+          await this.messagesService.createInboundMessage({
+            conversationId: conversation.id,
+            event: normalizedEvent,
+          });
+
+        try {
+          await this.executionService.executeForInboundMessage(
+            conversation.id,
+            persistedMessage.id,
+          );
+        } catch (error: unknown) {
+          this.logger.error(
+            `Execution flow failed for conversationId=${conversation.id} messageId=${persistedMessage.id}`,
+            error as Error,
+          );
+        }
 
         summary.processedCount += 1;
         return;

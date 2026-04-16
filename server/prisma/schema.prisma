@@ -21,6 +21,12 @@ enum ConversationStatus {
   CLOSED @map("closed")
 }
 
+enum AiMode {
+  AUTO_REPLY  @map("auto_reply")
+  SUGGEST_ONLY @map("suggest_only")
+  PAUSED      @map("paused")
+}
+
 enum SenderType {
   USER  @map("user")
   AI    @map("ai")
@@ -52,6 +58,7 @@ model Conversation {
   phoneNumber     String
   leadStage       LeadStage          @default(NEW)
   status          ConversationStatus @default(ACTIVE)
+  aiMode          AiMode             @default(AUTO_REPLY)
   lastMessageAt   DateTime?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt

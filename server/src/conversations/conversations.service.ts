@@ -87,6 +87,7 @@ export class ConversationsService {
         phoneNumber: true,
         leadStage: true,
         status: true,
+        aiMode: true,
         lastMessageAt: true,
       },
       orderBy: {
@@ -117,6 +118,14 @@ export class ConversationsService {
       },
       orderBy: {
         createdAt: 'desc',
+      },
+    });
+  }
+
+  async getConversationById(conversationId: string) {
+    return this.prisma.conversation.findUnique({
+      where: {
+        id: conversationId,
       },
     });
   }

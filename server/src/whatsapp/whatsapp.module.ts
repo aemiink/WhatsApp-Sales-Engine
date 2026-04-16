@@ -1,6 +1,7 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { AppConfigModule } from '../config/app-config.module';
 import { ConversationsModule } from '../conversations/conversations.module';
+import { ExecutionModule } from '../execution/execution.module';
 import { WhatsAppMessagesController } from './controllers/whatsapp-messages.controller';
 import { WhatsAppWebhookController } from './controllers/whatsapp-webhook.controller';
 import { MetaWhatsAppProvider } from './providers/meta-whatsapp.provider';
@@ -12,7 +13,11 @@ import { WhatsAppMessageSenderService } from './services/whatsapp-message-sender
 import { WhatsAppWebhookService } from './services/whatsapp-webhook.service';
 
 @Module({
-  imports: [AppConfigModule, ConversationsModule],
+  imports: [
+    AppConfigModule,
+    ConversationsModule,
+    forwardRef(() => ExecutionModule),
+  ],
   controllers: [WhatsAppWebhookController, WhatsAppMessagesController],
   providers: [
     WhatsAppWebhookService,

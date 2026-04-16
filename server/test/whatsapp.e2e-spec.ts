@@ -6,6 +6,7 @@ import { AppModule } from '../src/app.module';
 import { ConversationsService } from '../src/conversations/conversations.service';
 import { MessageStatusService } from '../src/conversations/message-status.service';
 import { MessagesService } from '../src/conversations/messages.service';
+import { ExecutionService } from '../src/execution/services/execution.service';
 import { WHATSAPP_PROVIDER_TOKEN } from '../src/whatsapp/providers/whatsapp-provider.interface';
 import { WhatsAppConnectionService } from '../src/whatsapp/services/whatsapp-connection.service';
 import { WhatsAppDedupService } from '../src/whatsapp/services/whatsapp-dedup.service';
@@ -346,6 +347,10 @@ describe('WhatsApp Module (e2e)', () => {
       .useValue(messageStatusServiceMock)
       .overrideProvider(WhatsAppDedupService)
       .useValue(dedupServiceMock)
+      .overrideProvider(ExecutionService)
+      .useValue({
+        executeForInboundMessage: jest.fn().mockResolvedValue({}),
+      })
       .compile();
 
     app = moduleFixture.createNestApplication();
