@@ -1,8 +1,12 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AiBrainModule } from './ai-brain/ai-brain.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuthModule } from './auth/auth.module';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { RolesGuard } from './auth/guards/roles.guard';
 import { BrandContextModule } from './brand-context/brand-context.module';
 import { AppConfigModule } from './config/app-config.module';
 import { ConversationsModule } from './conversations/conversations.module';
@@ -16,6 +20,7 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
 @Module({
   imports: [
     AppConfigModule,
+    AuthModule,
     DatabaseModule,
     ConversationsModule,
     BrandContextModule,
@@ -28,6 +33,16 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     TrainingSettingsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+  ],
 })
 export class AppModule {}

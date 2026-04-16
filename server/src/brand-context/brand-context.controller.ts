@@ -1,8 +1,16 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-import { DEFAULT_WORKSPACE_ID } from '../common/constants/workspace.constants';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Post,
+} from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import type { RequestUser } from '../auth/interfaces/request-user.interface';
 import { AnalyzeInstagramDto } from './dto/analyze-instagram.dto';
 import { AnalyzeWebsiteDto } from './dto/analyze-website.dto';
-import { GetBrandContextQueryDto } from './dto/get-brand-context-query.dto';
 import { UpsertBrandContextDto } from './dto/upsert-brand-context.dto';
 import { BrandContextService } from './brand-context.service';
 
@@ -10,36 +18,57 @@ import { BrandContextService } from './brand-context.service';
 export class BrandContextController {
   constructor(private readonly brandContextService: BrandContextService) {}
 
+  @Roles('admin', 'agent')
   @Post()
-  async upsert(@Body() body: UpsertBrandContextDto) {
-    return this.brandContextService.upsertBrandContext(body);
+  async upsert(
+    @CurrentUser() user: RequestUser,
+    @Body() body: UpsertBrandContextDto,
+  ) {
+    return this.brandContextService.upsertBrandContext({
+      workspaceId: user.workspaceId,
+      tone: body.tone,
+      salesStyle: body.salesStyle,
+      dataJson: body.dataJson,
+    });
   }
 
   @Get()
-  async getBrandContext(@Query() query: GetBrandContextQueryDto) {
-    const workspaceId = query.workspaceId ?? DEFAULT_WORKSPACE_ID;
-    return this.brandContextService.getBrandContext(workspaceId);
+  async getBrandContext(@CurrentUser() user: RequestUser) {
+    return this.brandContextService.getBrandContext(user.workspaceId);
   }
 
   @Get('workspace/:workspaceId')
-  async findByWorkspace(@Param('workspaceId') workspaceId: string) {
-    return this.brandContextService.getBrandContext(workspaceId);
+  async findByWorkspace(
+    @CurrentUser() user: RequestUser,
+    @Param('workspaceId') workspaceId: string,
+  ) {
+    if (workspaceId !== user.workspaceId) {
+      throw new ForbiddenException('Workspace mismatch');
+    }
+
+    return this.brandContextService.getBrandContext(user.workspaceId);
   }
 
+  @Roles('admin', 'agent')
   @Post('website/analyze')
-  async analyzeWebsite(@Body() body: AnalyzeWebsiteDto) {
-    const workspaceId = body.workspaceId ?? DEFAULT_WORKSPACE_ID;
+  async analyzeWebsite(
+    @CurrentUser() user: RequestUser,
+    @Body() body: AnalyzeWebsiteDto,
+  ) {
     return this.brandContextService.analyzeWebsite(
-      workspaceId,
+      user.workspaceId,
       body.websiteUrl,
     );
   }
 
+  @Roles('admin', 'agent')
   @Post('instagram/analyze')
-  async analyzeInstagram(@Body() body: AnalyzeInstagramDto) {
-    const workspaceId = body.workspaceId ?? DEFAULT_WORKSPACE_ID;
+  async analyzeInstagram(
+    @CurrentUser() user: RequestUser,
+    @Body() body: AnalyzeInstagramDto,
+  ) {
     return this.brandContextService.analyzeInstagram(
-      workspaceId,
+      user.workspaceId,
       body.instagramHandle,
     );
   }

@@ -435,7 +435,6 @@ describe('Brand Context + Training Settings (e2e)', () => {
     const patchResponse = await request(app!.getHttpServer())
       .patch('/training-settings')
       .send({
-        workspaceId: 'ws-3',
         productsJson: [
           {
             name: 'Consulting Package',
@@ -462,23 +461,20 @@ describe('Brand Context + Training Settings (e2e)', () => {
       resolvedContext: { sourceSummary: { manualTrainingAvailable: boolean } };
     };
 
-    expect(patchBody.trainingSettings.workspaceId).toBe('ws-3');
+    expect(patchBody.trainingSettings.workspaceId).toBe('default-workspace');
     expect(
       patchBody.resolvedContext.sourceSummary.manualTrainingAvailable,
     ).toBe(true);
 
     const readSettings = await request(app!.getHttpServer())
       .get('/training-settings')
-      .query({
-        workspaceId: 'ws-3',
-      })
       .expect(200);
 
     const settingsBody = readSettings.body as {
       trainingSettings: { workspaceId: string; faqJson: unknown[] };
     };
 
-    expect(settingsBody.trainingSettings.workspaceId).toBe('ws-3');
+    expect(settingsBody.trainingSettings.workspaceId).toBe('default-workspace');
     expect(settingsBody.trainingSettings.faqJson).toHaveLength(1);
   });
 });

@@ -8,6 +8,7 @@ import {
   Res,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { Public } from '../../auth/decorators/public.decorator';
 import { WhatsAppWebhookVerificationQueryDto } from '../dto/webhook-verification-query.dto';
 import { WhatsAppWebhookService } from '../services/whatsapp-webhook.service';
 
@@ -15,6 +16,7 @@ import { WhatsAppWebhookService } from '../services/whatsapp-webhook.service';
 export class WhatsAppWebhookController {
   constructor(private readonly webhookService: WhatsAppWebhookService) {}
 
+  @Public()
   @Get()
   verifyWebhook(
     @Query('hub.mode') hubMode: string | undefined,
@@ -31,6 +33,7 @@ export class WhatsAppWebhookController {
     response.status(200).send(challenge);
   }
 
+  @Public()
   @Post()
   @HttpCode(200)
   ingestWebhook(@Body() payload: unknown) {

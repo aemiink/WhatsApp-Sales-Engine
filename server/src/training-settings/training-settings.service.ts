@@ -1,9 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { DEFAULT_WORKSPACE_ID } from '../common/constants/workspace.constants';
 import { PrismaService } from '../database/prisma.service';
 import { BrandContextResolverService } from '../brand-context/brand-context-resolver.service';
-import { UpdateTrainingSettingsDto } from './dto/update-training-settings.dto';
+
+interface UpdateTrainingSettingsInput {
+  workspaceId: string;
+  productsJson?: Record<string, unknown>[];
+  faqJson?: Record<string, unknown>[];
+  rulesJson?: Record<string, unknown>;
+  forbiddenResponsesJson?: string[];
+  handoffRulesJson?: string[];
+}
 
 @Injectable()
 export class TrainingSettingsService {
@@ -14,18 +21,17 @@ export class TrainingSettingsService {
     private readonly brandContextResolverService: BrandContextResolverService,
   ) {}
 
-  async getTrainingSettings(workspaceId?: string) {
-    const resolvedWorkspaceId = workspaceId ?? DEFAULT_WORKSPACE_ID;
+  async getTrainingSettings(workspaceId: string) {
     const settings = await this.prisma.trainingSetting.findUnique({
       where: {
-        workspaceId: resolvedWorkspaceId,
+        workspaceId,
       },
     });
 
     return {
-      workspaceId: resolvedWorkspaceId,
+      workspaceId,
       trainingSettings: settings ?? {
-        workspaceId: resolvedWorkspaceId,
+        workspaceId,
         productsJson: [],
         faqJson: [],
         rulesJson: {},
@@ -35,8 +41,8 @@ export class TrainingSettingsService {
     };
   }
 
-  async updateTrainingSettings(input: UpdateTrainingSettingsDto) {
-    const workspaceId = input.workspaceId ?? DEFAULT_WORKSPACE_ID;
+  async updateTrainingSettings(input: UpdateTrainingSettingsInput) {
+    const workspaceId = input.workspaceId;
 
     const updated = await this.prisma.trainingSetting.upsert({
       where: {

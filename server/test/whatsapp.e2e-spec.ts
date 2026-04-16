@@ -7,7 +7,7 @@ import { AnalyticsService } from '../src/analytics/analytics.service';
 import { ConversationsService } from '../src/conversations/conversations.service';
 import { MessageStatusService } from '../src/conversations/message-status.service';
 import { MessagesService } from '../src/conversations/messages.service';
-import { ExecutionService } from '../src/execution/services/execution.service';
+import { InboundEventQueueService } from '../src/execution/services/inbound-event-queue.service';
 import { WHATSAPP_PROVIDER_TOKEN } from '../src/whatsapp/providers/whatsapp-provider.interface';
 import { WhatsAppConnectionService } from '../src/whatsapp/services/whatsapp-connection.service';
 import { WhatsAppDedupService } from '../src/whatsapp/services/whatsapp-dedup.service';
@@ -348,9 +348,12 @@ describe('WhatsApp Module (e2e)', () => {
       .useValue(messageStatusServiceMock)
       .overrideProvider(WhatsAppDedupService)
       .useValue(dedupServiceMock)
-      .overrideProvider(ExecutionService)
+      .overrideProvider(InboundEventQueueService)
       .useValue({
-        executeForInboundMessage: jest.fn().mockResolvedValue({}),
+        enqueue: jest.fn().mockResolvedValue({
+          queued: true,
+          jobId: 'conv-1:msg-1',
+        }),
       })
       .overrideProvider(AnalyticsService)
       .useValue({

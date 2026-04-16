@@ -6,7 +6,7 @@ import { ConversationsService } from '../../conversations/conversations.service'
 import { MessageStatusService } from '../../conversations/message-status.service';
 import { MessagesService } from '../../conversations/messages.service';
 import { DEFAULT_WORKSPACE_ID } from '../../common/constants/workspace.constants';
-import { ExecutionService } from '../../execution/services/execution.service';
+import { InboundEventQueueService } from '../../execution/services/inbound-event-queue.service';
 import {
   NormalizedInboundEventWithDedup,
   NormalizedWhatsAppEvent,
@@ -52,6 +52,10 @@ interface WebhookProcessSummary {
 @Injectable()
 export class WhatsAppWebhookService {
   private readonly logger = new Logger(WhatsAppWebhookService.name);
+  private readonly inboundCounter = new Map<
+    string,
+    { count: number; windowStartMs: number }
+  >();
 
   constructor(
     @Inject(WHATSAPP_PROVIDER_TOKEN)
@@ -64,8 +68,8 @@ export class WhatsAppWebhookService {
     private readonly messagesService: MessagesService,
     private readonly messageStatusService: MessageStatusService,
     private readonly analyticsService: AnalyticsService,
-    @Inject(forwardRef(() => ExecutionService))
-    private readonly executionService: ExecutionService,
+    @Inject(forwardRef(() => InboundEventQueueService))
+    private readonly inboundEventQueueService: InboundEventQueueService,
   ) {}
 
   verifyWebhook(query: WhatsAppWebhookVerificationQueryDto): string {
@@ -163,7 +167,24 @@ export class WhatsAppWebhookService {
     const normalizedEvent = event.normalizedEvent;
 
     try {
-      const duplicate = await this.dedupService.isDuplicate(normalizedEvent);
+      if (
+        normalizedEvent.eventType === 'message' &&
+        !this.allowInboundEvent(
+          workspaceId,
+          normalizedEvent.fromPhoneNumber ?? 'unknown',
+        )
+      ) {
+        summary.ignoredCount += 1;
+        this.logger.warn(
+          `Inbound rate limit exceeded workspaceId=${workspaceId} phone=${normalizedEvent.fromPhoneNumber ?? 'unknown'}`,
+        );
+        return;
+      }
+
+      const duplicate = await this.dedupService.isDuplicate(
+        normalizedEvent,
+        workspaceId,
+      );
       if (duplicate) {
         summary.duplicateCount += 1;
         this.logger.warn(
@@ -204,17 +225,11 @@ export class WhatsAppWebhookService {
           },
         });
 
-        try {
-          await this.executionService.executeForInboundMessage(
-            conversation.id,
-            persistedMessage.id,
-          );
-        } catch (error: unknown) {
-          this.logger.error(
-            `Execution flow failed for conversationId=${conversation.id} messageId=${persistedMessage.id}`,
-            error as Error,
-          );
-        }
+        await this.inboundEventQueueService.enqueue({
+          workspaceId,
+          conversationId: conversation.id,
+          messageId: persistedMessage.id,
+        });
 
         summary.processedCount += 1;
         return;
@@ -263,5 +278,26 @@ export class WhatsAppWebhookService {
       normalizedEvent,
       dedupKey: this.dedupService.createInboundDedupKey(normalizedEvent),
     };
+  }
+
+  private allowInboundEvent(workspaceId: string, phoneNumber: string): boolean {
+    const key = `${workspaceId}:${phoneNumber}`;
+    const now = Date.now();
+    const windowMs = this.appConfigService.inboundRateLimitWindowMs;
+    const maxPerWindow = this.appConfigService.inboundRateLimitPerWindow;
+
+    const current = this.inboundCounter.get(key);
+    if (!current || now - current.windowStartMs >= windowMs) {
+      this.inboundCounter.set(key, { count: 1, windowStartMs: now });
+      return true;
+    }
+
+    if (current.count >= maxPerWindow) {
+      return false;
+    }
+
+    current.count += 1;
+    this.inboundCounter.set(key, current);
+    return true;
   }
 }

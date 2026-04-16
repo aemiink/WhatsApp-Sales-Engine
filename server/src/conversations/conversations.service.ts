@@ -1,7 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { LeadStage, Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
-import { CreateConversationDto } from './dto/create-conversation.dto';
+
+interface CreateConversationInput {
+  workspaceId: string;
+  phoneNumber: string;
+}
 
 function isUniqueConstraintError(error: unknown): boolean {
   if (
@@ -25,7 +29,7 @@ export class ConversationsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async createConversation(input: CreateConversationDto) {
+  async createConversation(input: CreateConversationInput) {
     return this.prisma.conversation.create({
       data: {
         workspaceId: input.workspaceId,

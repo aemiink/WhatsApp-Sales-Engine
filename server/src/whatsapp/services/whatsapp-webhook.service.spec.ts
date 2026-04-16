@@ -3,7 +3,7 @@ import { ConversationsService } from '../../conversations/conversations.service'
 import { MessageStatusService } from '../../conversations/message-status.service';
 import { MessagesService } from '../../conversations/messages.service';
 import { AnalyticsService } from '../../analytics/analytics.service';
-import { ExecutionService } from '../../execution/services/execution.service';
+import { InboundEventQueueService } from '../../execution/services/inbound-event-queue.service';
 import { InvalidWebhookChallengeException } from '../errors/whatsapp.errors';
 import { WhatsAppConnectionService } from './whatsapp-connection.service';
 import { WhatsAppDedupService } from './whatsapp-dedup.service';
@@ -31,9 +31,12 @@ describe('WhatsAppWebhookService', () => {
     updateStatusFromEvent: jest.fn().mockResolvedValue(true),
   } as unknown as MessageStatusService;
 
-  const executionServiceMock = {
-    executeForInboundMessage: jest.fn().mockResolvedValue({}),
-  } as unknown as ExecutionService;
+  const inboundQueueServiceMock = {
+    enqueue: jest.fn().mockResolvedValue({
+      queued: true,
+      jobId: 'conv-1:msg-1',
+    }),
+  } as unknown as InboundEventQueueService;
 
   const analyticsServiceMock = {
     safeTrack: jest.fn().mockResolvedValue(undefined),
@@ -60,7 +63,7 @@ describe('WhatsAppWebhookService', () => {
       messagesServiceMock,
       messageStatusServiceMock,
       analyticsServiceMock,
-      executionServiceMock,
+      inboundQueueServiceMock,
     );
 
     const challenge = service.verifyWebhook({
@@ -93,7 +96,7 @@ describe('WhatsAppWebhookService', () => {
       messagesServiceMock,
       messageStatusServiceMock,
       analyticsServiceMock,
-      executionServiceMock,
+      inboundQueueServiceMock,
     );
 
     expect(() =>
@@ -126,7 +129,7 @@ describe('WhatsAppWebhookService', () => {
       messagesServiceMock,
       messageStatusServiceMock,
       analyticsServiceMock,
-      executionServiceMock,
+      inboundQueueServiceMock,
     );
 
     const response = await service.ingestWebhook({

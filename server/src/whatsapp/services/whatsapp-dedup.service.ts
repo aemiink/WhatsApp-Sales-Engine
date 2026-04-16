@@ -46,7 +46,10 @@ export class WhatsAppDedupService {
     return `fallback:${hash}`;
   }
 
-  async isDuplicate(event: NormalizedWhatsAppEvent): Promise<boolean> {
+  async isDuplicate(
+    event: NormalizedWhatsAppEvent,
+    workspaceId = 'default-workspace',
+  ): Promise<boolean> {
     if (event.eventType === 'message' && event.externalMessageId) {
       const existing = await this.prisma.message.findUnique({
         where: {
@@ -65,6 +68,7 @@ export class WhatsAppDedupService {
     try {
       await this.prisma.inboundEventLog.create({
         data: {
+          workspaceId,
           dedupKey,
           rawPayload: event.rawPayload as Prisma.InputJsonValue,
         },

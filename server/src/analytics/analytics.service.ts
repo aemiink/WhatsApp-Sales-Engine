@@ -5,6 +5,7 @@ import {
   MessageDirection,
   Prisma,
 } from '@prisma/client';
+import { DEFAULT_WORKSPACE_ID } from '../common/constants/workspace.constants';
 import { PrismaService } from '../database/prisma.service';
 import {
   ANALYTICS_EVENT_TYPES,
@@ -52,7 +53,7 @@ export class AnalyticsService {
 
   async trackEvent(input: TrackAnalyticsEventDto) {
     return this.track({
-      workspaceId: input.workspaceId,
+      workspaceId: input.workspaceId ?? DEFAULT_WORKSPACE_ID,
       conversationId: input.conversationId,
       type: input.type,
       payloadJson: input.payloadJson,

@@ -8,7 +8,13 @@ import { WebsiteFetcherService } from '../website-analysis/website-fetcher.servi
 import { WebsiteParserService } from '../website-analysis/website-parser.service';
 import { WebsiteSignalExtractorService } from '../website-analysis/website-signal-extractor.service';
 import { BrandContextResolverService } from './brand-context-resolver.service';
-import { UpsertBrandContextDto } from './dto/upsert-brand-context.dto';
+
+interface UpsertBrandContextInput {
+  workspaceId: string;
+  tone?: string;
+  salesStyle?: string;
+  dataJson?: Record<string, unknown>;
+}
 
 @Injectable()
 export class BrandContextService {
@@ -24,7 +30,7 @@ export class BrandContextService {
     private readonly instagramSignalExtractorService: InstagramSignalExtractorService,
   ) {}
 
-  async upsertBrandContext(input: UpsertBrandContextDto) {
+  async upsertBrandContext(input: UpsertBrandContextInput) {
     return this.prisma.brandContext.upsert({
       where: {
         workspaceId: input.workspaceId,

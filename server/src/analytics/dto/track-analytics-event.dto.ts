@@ -1,8 +1,9 @@
 import { IsObject, IsOptional, IsString } from 'class-validator';
 
 export class TrackAnalyticsEventDto {
+  @IsOptional()
   @IsString()
-  workspaceId!: string;
+  workspaceId?: string;
 
   @IsOptional()
   @IsString()

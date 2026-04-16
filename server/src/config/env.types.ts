@@ -5,8 +5,14 @@ export type AiDefaultProvider = (typeof AI_DEFAULT_PROVIDERS)[number];
 export interface EnvironmentVariables {
   NODE_ENV: 'development' | 'test' | 'production';
   PORT: number;
+  APP_VERSION?: string;
   DATABASE_URL: string;
   DIRECT_URL: string;
+  JWT_ACCESS_SECRET: string;
+  JWT_REFRESH_SECRET: string;
+  JWT_ACCESS_EXPIRES_IN_SECONDS: number;
+  JWT_REFRESH_EXPIRES_IN_SECONDS: number;
+  AUTH_BYPASS_IN_TEST?: boolean;
   AI_DEFAULT_PROVIDER: AiDefaultProvider;
   GEMINI_API_KEY?: string;
   GEMINI_MODEL?: string;
@@ -14,6 +20,13 @@ export interface EnvironmentVariables {
   OPENAI_MODEL?: string;
   AI_TIMEOUT_MS?: number;
   AI_MAX_RETRIES?: number;
+  WHATSAPP_SEND_MAX_RETRIES?: number;
+  WHATSAPP_SEND_RETRY_BASE_DELAY_MS?: number;
+  OUTBOUND_MIN_INTERVAL_MS?: number;
+  INBOUND_RATE_LIMIT_PER_WINDOW?: number;
+  INBOUND_RATE_LIMIT_WINDOW_MS?: number;
+  EXECUTION_QUEUE_MAX_RETRIES?: number;
+  EXECUTION_QUEUE_RETRY_BASE_DELAY_MS?: number;
   WHATSAPP_ACCESS_TOKEN: string;
   WHATSAPP_PHONE_NUMBER_ID: string;
   WHATSAPP_BUSINESS_ACCOUNT_ID?: string;

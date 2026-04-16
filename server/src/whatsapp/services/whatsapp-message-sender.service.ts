@@ -1,8 +1,15 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { AnalyticsService } from '../../analytics/analytics.service';
 import { ConversationsService } from '../../conversations/conversations.service';
 import { MessagesService } from '../../conversations/messages.service';
 import { DEFAULT_WORKSPACE_ID } from '../../common/constants/workspace.constants';
+import { AppConfigService } from '../../config/app-config.service';
 import { SendTextWhatsAppMessageDto } from '../dto/send-text-whatsapp-message.dto';
 import { maskPhoneNumber } from '../utils/phone-mask.util';
 import { WHATSAPP_PROVIDER_TOKEN } from '../providers/whatsapp-provider.interface';
@@ -12,13 +19,21 @@ import type {
 } from '../providers/whatsapp-provider.interface';
 import { WhatsAppConnectionService } from './whatsapp-connection.service';
 
+interface SendTextWithWorkspaceInput {
+  workspaceId?: string;
+  to: string;
+  text: string;
+}
+
 @Injectable()
 export class WhatsAppMessageSenderService {
   private readonly logger = new Logger(WhatsAppMessageSenderService.name);
+  private readonly outboundThrottleMap = new Map<string, number>();
 
   constructor(
     @Inject(WHATSAPP_PROVIDER_TOKEN)
     private readonly whatsappProvider: WhatsAppProvider,
+    private readonly appConfigService: AppConfigService,
     private readonly whatsappConnectionService: WhatsAppConnectionService,
     private readonly conversationsService: ConversationsService,
     private readonly messagesService: MessagesService,
@@ -40,7 +55,9 @@ export class WhatsAppMessageSenderService {
       `Outbound WhatsApp send requested to=${maskPhoneNumber(input.to)} workspace=${workspaceId}`,
     );
 
-    const response = await this.whatsappProvider.sendTextMessage({
+    this.assertOutboundRateLimit(workspaceId, input.to);
+
+    const response = await this.sendWithRetry({
       to: input.to,
       text: input.text,
       workspaceId,
@@ -78,5 +95,62 @@ export class WhatsAppMessageSenderService {
     );
 
     return response;
+  }
+
+  private async sendWithRetry(
+    input: SendTextWithWorkspaceInput,
+  ): Promise<SendTextMessageResult> {
+    const maxAttempts = this.appConfigService.whatsappSendMaxRetries + 1;
+    let lastError: unknown = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await this.whatsappProvider.sendTextMessage({
+          to: input.to,
+          text: input.text,
+          workspaceId: input.workspaceId,
+        });
+      } catch (error: unknown) {
+        lastError = error;
+
+        if (attempt >= maxAttempts) {
+          break;
+        }
+
+        const delayMs =
+          this.appConfigService.whatsappSendRetryBaseDelayMs *
+          2 ** (attempt - 1);
+
+        this.logger.warn(
+          `Outbound WhatsApp retry scheduled to=${maskPhoneNumber(input.to)} attempt=${attempt + 1}/${maxAttempts} delayMs=${delayMs}`,
+        );
+
+        await this.sleep(delayMs);
+      }
+    }
+
+    throw lastError;
+  }
+
+  private assertOutboundRateLimit(workspaceId: string, to: string): void {
+    const key = `${workspaceId}:${to}`;
+    const now = Date.now();
+    const minimumIntervalMs = this.appConfigService.outboundMinIntervalMs;
+    const lastSentAt = this.outboundThrottleMap.get(key);
+
+    if (lastSentAt && now - lastSentAt < minimumIntervalMs) {
+      throw new HttpException(
+        `Outbound rate limit exceeded for recipient ${maskPhoneNumber(to)}`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    this.outboundThrottleMap.set(key, now);
+  }
+
+  private async sleep(delayMs: number): Promise<void> {
+    await new Promise((resolve) => {
+      setTimeout(resolve, delayMs);
+    });
   }
 }

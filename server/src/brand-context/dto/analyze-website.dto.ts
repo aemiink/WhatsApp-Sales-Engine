@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUrl } from 'class-validator';
+import { IsUrl } from 'class-validator';
 
 export class AnalyzeWebsiteDto {
   @IsUrl({
@@ -6,8 +6,4 @@ export class AnalyzeWebsiteDto {
     require_protocol: true,
   })
   websiteUrl!: string;
-
-  @IsOptional()
-  @IsString()
-  workspaceId?: string;
 }

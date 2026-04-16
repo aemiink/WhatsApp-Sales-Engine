@@ -1,5 +1,7 @@
-import { Body, Controller, Get, Patch, Query } from '@nestjs/common';
-import { GetTrainingSettingsQueryDto } from './dto/get-training-settings-query.dto';
+import { Body, Controller, Get, Patch } from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import type { RequestUser } from '../auth/interfaces/request-user.interface';
 import { UpdateTrainingSettingsDto } from './dto/update-training-settings.dto';
 import { TrainingSettingsService } from './training-settings.service';
 
@@ -10,12 +12,23 @@ export class TrainingSettingsController {
   ) {}
 
   @Get()
-  async getSettings(@Query() query: GetTrainingSettingsQueryDto) {
-    return this.trainingSettingsService.getTrainingSettings(query.workspaceId);
+  async getSettings(@CurrentUser() user: RequestUser) {
+    return this.trainingSettingsService.getTrainingSettings(user.workspaceId);
   }
 
+  @Roles('admin', 'agent')
   @Patch()
-  async updateSettings(@Body() body: UpdateTrainingSettingsDto) {
-    return this.trainingSettingsService.updateTrainingSettings(body);
+  async updateSettings(
+    @CurrentUser() user: RequestUser,
+    @Body() body: UpdateTrainingSettingsDto,
+  ) {
+    return this.trainingSettingsService.updateTrainingSettings({
+      workspaceId: user.workspaceId,
+      productsJson: body.productsJson,
+      faqJson: body.faqJson,
+      rulesJson: body.rulesJson,
+      forbiddenResponsesJson: body.forbiddenResponsesJson,
+      handoffRulesJson: body.handoffRulesJson,
+    });
   }
 }

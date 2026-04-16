@@ -1,30 +1,37 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   NotFoundException,
   Param,
   Post,
-  Query,
 } from '@nestjs/common';
-import { DEFAULT_WORKSPACE_ID } from '../common/constants/workspace.constants';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import type { RequestUser } from '../auth/interfaces/request-user.interface';
 import { CreateConversationDto } from './dto/create-conversation.dto';
-import { ListConversationsQueryDto } from './dto/list-conversations-query.dto';
 import { ConversationsService } from './conversations.service';
 
 @Controller('conversations')
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}
 
+  @Roles('admin', 'agent')
   @Post()
-  async create(@Body() body: CreateConversationDto) {
-    return this.conversationsService.createConversation(body);
+  async create(
+    @CurrentUser() user: RequestUser,
+    @Body() body: CreateConversationDto,
+  ) {
+    return this.conversationsService.createConversation({
+      workspaceId: user.workspaceId,
+      phoneNumber: body.phoneNumber,
+    });
   }
 
   @Get()
-  async list(@Query() query: ListConversationsQueryDto) {
-    const workspaceId = query.workspaceId ?? DEFAULT_WORKSPACE_ID;
-    return this.conversationsService.listConversations(workspaceId);
+  async list(@CurrentUser() user: RequestUser) {
+    return this.conversationsService.listConversations(user.workspaceId);
   }
 
   @Get(':id')
@@ -39,7 +46,16 @@ export class ConversationsController {
   }
 
   @Get('workspace/:workspaceId')
-  async findWorkspaceConversations(@Param('workspaceId') workspaceId: string) {
-    return this.conversationsService.getWorkspaceConversations(workspaceId);
+  async findWorkspaceConversations(
+    @CurrentUser() user: RequestUser,
+    @Param('workspaceId') workspaceId: string,
+  ) {
+    if (workspaceId !== user.workspaceId) {
+      throw new ForbiddenException('Workspace mismatch');
+    }
+
+    return this.conversationsService.getWorkspaceConversations(
+      user.workspaceId,
+    );
   }
 }

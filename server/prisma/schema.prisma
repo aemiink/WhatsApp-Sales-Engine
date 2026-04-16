@@ -21,6 +21,12 @@ enum ConversationStatus {
   CLOSED @map("closed")
 }
 
+enum WorkspaceRole {
+  ADMIN  @map("admin")
+  AGENT  @map("agent")
+  VIEWER @map("viewer")
+}
+
 enum AiMode {
   AUTO_REPLY  @map("auto_reply")
   SUGGEST_ONLY @map("suggest_only")
@@ -70,6 +76,42 @@ model Conversation {
   @@map("conversations")
 }
 
+model Workspace {
+  id              String             @id
+  name            String
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  members         WorkspaceMember[]
+
+  @@map("workspaces")
+}
+
+model User {
+  id             String             @id @default(uuid())
+  email          String             @unique
+  passwordHash   String
+  displayName    String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  memberships    WorkspaceMember[]
+
+  @@map("users")
+}
+
+model WorkspaceMember {
+  id           String        @id @default(uuid())
+  workspaceId  String
+  userId       String
+  role         WorkspaceRole @default(AGENT)
+  createdAt    DateTime      @default(now())
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId, workspaceId])
+  @@map("workspace_members")
+}
+
 model Message {
   id                String           @id @default(uuid())
   conversationId    String
@@ -89,11 +131,13 @@ model Message {
 }
 
 model InboundEventLog {
-  id        String   @id @default(uuid())
-  dedupKey  String   @unique
+  id         String   @id @default(uuid())
+  workspaceId String   @default("default-workspace")
+  dedupKey   String   @unique
   rawPayload Json
   receivedAt DateTime @default(now())
 
+  @@index([workspaceId, receivedAt])
   @@map("inbound_event_logs")
 }
 
