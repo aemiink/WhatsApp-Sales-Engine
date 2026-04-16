@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { AnalyticsService } from '../../analytics/analytics.service';
 import { ConversationsService } from '../../conversations/conversations.service';
 import { MessagesService } from '../../conversations/messages.service';
 import { DEFAULT_WORKSPACE_ID } from '../../common/constants/workspace.constants';
@@ -21,6 +22,7 @@ export class WhatsAppMessageSenderService {
     private readonly whatsappConnectionService: WhatsAppConnectionService,
     private readonly conversationsService: ConversationsService,
     private readonly messagesService: MessagesService,
+    private readonly analyticsService: AnalyticsService,
   ) {}
 
   async sendTextMessage(
@@ -51,12 +53,24 @@ export class WhatsAppMessageSenderService {
 
     const externalMessageId = response.messages[0]?.id;
 
-    await this.messagesService.createOutboundMessage({
+    const persistedMessage = await this.messagesService.createOutboundMessage({
       conversationId: conversation.id,
       externalMessageId,
       content: input.text,
       rawPayload: response.rawResponse,
       timestamp: new Date(),
+    });
+
+    await this.analyticsService.safeTrack({
+      workspaceId,
+      conversationId: conversation.id,
+      type: 'message_sent',
+      payloadJson: {
+        messageId: persistedMessage.id,
+        externalMessageId: persistedMessage.externalMessageId,
+        senderType: persistedMessage.senderType,
+        direction: persistedMessage.direction,
+      },
     });
 
     this.logger.log(

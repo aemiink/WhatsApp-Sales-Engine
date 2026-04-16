@@ -13,6 +13,7 @@ describe('HandoffExecutorService', () => {
       conversation: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'conv-1',
+          workspaceId: 'ws-1',
         }),
       },
       handoffSession: {
@@ -26,6 +27,9 @@ describe('HandoffExecutorService', () => {
     const service = new HandoffExecutorService(
       prismaMock as never,
       aiModeServiceMock as never,
+      {
+        safeTrack: jest.fn().mockResolvedValue(undefined),
+      } as never,
     );
 
     const result = await service.startHandoff('conv-1');
@@ -50,6 +54,7 @@ describe('HandoffExecutorService', () => {
       conversation: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'conv-1',
+          workspaceId: 'ws-1',
         }),
       },
       handoffSession: {
@@ -63,6 +68,9 @@ describe('HandoffExecutorService', () => {
     const service = new HandoffExecutorService(
       prismaMock as never,
       aiModeServiceMock as never,
+      {
+        safeTrack: jest.fn().mockResolvedValue(undefined),
+      } as never,
     );
 
     const result = await service.endHandoff('conv-1', 'auto_reply');

@@ -2,6 +2,7 @@ import { AppConfigService } from '../../config/app-config.service';
 import { ConversationsService } from '../../conversations/conversations.service';
 import { MessageStatusService } from '../../conversations/message-status.service';
 import { MessagesService } from '../../conversations/messages.service';
+import { AnalyticsService } from '../../analytics/analytics.service';
 import { ExecutionService } from '../../execution/services/execution.service';
 import { InvalidWebhookChallengeException } from '../errors/whatsapp.errors';
 import { WhatsAppConnectionService } from './whatsapp-connection.service';
@@ -34,6 +35,10 @@ describe('WhatsAppWebhookService', () => {
     executeForInboundMessage: jest.fn().mockResolvedValue({}),
   } as unknown as ExecutionService;
 
+  const analyticsServiceMock = {
+    safeTrack: jest.fn().mockResolvedValue(undefined),
+  } as unknown as AnalyticsService;
+
   it('returns challenge when provider verifies successfully', () => {
     const service = new WhatsAppWebhookService(
       {
@@ -54,6 +59,7 @@ describe('WhatsAppWebhookService', () => {
       conversationsServiceMock,
       messagesServiceMock,
       messageStatusServiceMock,
+      analyticsServiceMock,
       executionServiceMock,
     );
 
@@ -86,6 +92,7 @@ describe('WhatsAppWebhookService', () => {
       conversationsServiceMock,
       messagesServiceMock,
       messageStatusServiceMock,
+      analyticsServiceMock,
       executionServiceMock,
     );
 
@@ -118,6 +125,7 @@ describe('WhatsAppWebhookService', () => {
       conversationsServiceMock,
       messagesServiceMock,
       messageStatusServiceMock,
+      analyticsServiceMock,
       executionServiceMock,
     );
 

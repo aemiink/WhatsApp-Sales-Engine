@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { AnalyticsService } from '../../analytics/analytics.service';
 import { PrismaService } from '../../database/prisma.service';
 import { AiModeValue } from '../dto/set-ai-mode.dto';
 import { AiModeService } from './ai-mode.service';
@@ -10,6 +11,7 @@ export class HandoffExecutorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiModeService: AiModeService,
+    private readonly analyticsService: AnalyticsService,
   ) {}
 
   async startHandoff(conversationId: string, reason?: string) {
@@ -19,6 +21,7 @@ export class HandoffExecutorService {
       },
       select: {
         id: true,
+        workspaceId: true,
       },
     });
 
@@ -59,6 +62,16 @@ export class HandoffExecutorService {
       `Handoff started conversationId=${conversationId} reason=${reason ?? 'none'}`,
     );
 
+    await this.analyticsService.safeTrack({
+      workspaceId: conversation.workspaceId,
+      conversationId,
+      type: 'handoff_started',
+      payloadJson: {
+        handoffSessionId: created.id,
+        reason: reason ?? null,
+      },
+    });
+
     return {
       handoffSessionId: created.id,
       aiMode: 'paused' as const,
@@ -76,6 +89,7 @@ export class HandoffExecutorService {
       },
       select: {
         id: true,
+        workspaceId: true,
       },
     });
 
@@ -109,6 +123,18 @@ export class HandoffExecutorService {
     this.logger.log(
       `Handoff ended conversationId=${conversationId} resumeMode=${resumeMode}`,
     );
+
+    if (active) {
+      await this.analyticsService.safeTrack({
+        workspaceId: conversation.workspaceId,
+        conversationId,
+        type: 'handoff_ended',
+        payloadJson: {
+          handoffSessionId: active.id,
+          resumeMode,
+        },
+      });
+    }
 
     return {
       handoffSessionId: active?.id ?? null,

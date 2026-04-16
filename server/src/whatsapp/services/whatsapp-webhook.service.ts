@@ -1,5 +1,6 @@
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { AnalyticsService } from '../../analytics/analytics.service';
 import { AppConfigService } from '../../config/app-config.service';
 import { ConversationsService } from '../../conversations/conversations.service';
 import { MessageStatusService } from '../../conversations/message-status.service';
@@ -62,6 +63,7 @@ export class WhatsAppWebhookService {
     private readonly conversationsService: ConversationsService,
     private readonly messagesService: MessagesService,
     private readonly messageStatusService: MessageStatusService,
+    private readonly analyticsService: AnalyticsService,
     @Inject(forwardRef(() => ExecutionService))
     private readonly executionService: ExecutionService,
   ) {}
@@ -190,6 +192,17 @@ export class WhatsAppWebhookService {
             conversationId: conversation.id,
             event: normalizedEvent,
           });
+
+        await this.analyticsService.safeTrack({
+          workspaceId,
+          conversationId: conversation.id,
+          type: 'message_received',
+          payloadJson: {
+            messageId: persistedMessage.id,
+            externalMessageId: persistedMessage.externalMessageId,
+            messageType: persistedMessage.messageType,
+          },
+        });
 
         try {
           await this.executionService.executeForInboundMessage(

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { LeadStage, Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 
@@ -126,6 +126,22 @@ export class ConversationsService {
     return this.prisma.conversation.findUnique({
       where: {
         id: conversationId,
+      },
+    });
+  }
+
+  async updateLeadStage(conversationId: string, leadStage: LeadStage) {
+    return this.prisma.conversation.update({
+      where: {
+        id: conversationId,
+      },
+      data: {
+        leadStage,
+      },
+      select: {
+        id: true,
+        workspaceId: true,
+        leadStage: true,
       },
     });
   }

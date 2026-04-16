@@ -16,6 +16,21 @@ describe('ExecutionService', () => {
         }),
       } as never,
       {
+        getConversationById: jest.fn().mockResolvedValue({
+          id: 'conv-1',
+          workspaceId: 'ws-1',
+          leadStage: 'NEW',
+        }),
+        updateLeadStage: jest.fn().mockResolvedValue({
+          id: 'conv-1',
+          workspaceId: 'ws-1',
+          leadStage: 'SUPPORT',
+        }),
+      } as never,
+      {
+        safeTrack: jest.fn().mockResolvedValue(undefined),
+      } as never,
+      {
         executeDecisionReply: jest.fn().mockResolvedValue({
           sent: false,
           skipped: true,

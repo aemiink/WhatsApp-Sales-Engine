@@ -15,7 +15,11 @@ describe('ReplyExecutorService', () => {
   it('skips reply when ai mode is paused', async () => {
     const service = new ReplyExecutorService(
       {
-        getConversationById: jest.fn(),
+        getConversationById: jest.fn().mockResolvedValue({
+          id: 'conv-1',
+          workspaceId: 'ws-1',
+          phoneNumber: '905551112233',
+        }),
       } as never,
       {
         message: {
@@ -27,6 +31,9 @@ describe('ReplyExecutorService', () => {
       } as never,
       {
         sendTextMessage: jest.fn(),
+      } as never,
+      {
+        safeTrack: jest.fn().mockResolvedValue(undefined),
       } as never,
     );
 
@@ -60,6 +67,9 @@ describe('ReplyExecutorService', () => {
       {
         sendTextMessage: sendMock,
       } as never,
+      {
+        safeTrack: jest.fn().mockResolvedValue(undefined),
+      } as never,
     );
 
     const result = await service.executeDecisionReply('conv-1', baseDecision);
@@ -92,6 +102,9 @@ describe('ReplyExecutorService', () => {
       } as never,
       {
         sendTextMessage: jest.fn(),
+      } as never,
+      {
+        safeTrack: jest.fn().mockResolvedValue(undefined),
       } as never,
     );
 

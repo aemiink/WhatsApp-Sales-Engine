@@ -1,4 +1,5 @@
 import { forwardRef, Module } from '@nestjs/common';
+import { AnalyticsModule } from '../analytics/analytics.module';
 import { ConversationsModule } from '../conversations/conversations.module';
 import { SalesEngineModule } from '../sales-engine/sales-engine.module';
 import { WhatsappModule } from '../whatsapp/whatsapp.module';
@@ -10,6 +11,7 @@ import { ReplyExecutorService } from './services/reply-executor.service';
 
 @Module({
   imports: [
+    AnalyticsModule,
     ConversationsModule,
     SalesEngineModule,
     forwardRef(() => WhatsappModule),

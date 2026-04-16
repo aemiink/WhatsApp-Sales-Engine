@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import { AnalyticsService } from '../src/analytics/analytics.service';
 import { ConversationsService } from '../src/conversations/conversations.service';
 import { MessageStatusService } from '../src/conversations/message-status.service';
 import { MessagesService } from '../src/conversations/messages.service';
@@ -350,6 +351,10 @@ describe('WhatsApp Module (e2e)', () => {
       .overrideProvider(ExecutionService)
       .useValue({
         executeForInboundMessage: jest.fn().mockResolvedValue({}),
+      })
+      .overrideProvider(AnalyticsService)
+      .useValue({
+        safeTrack: jest.fn().mockResolvedValue(undefined),
       })
       .compile();
 

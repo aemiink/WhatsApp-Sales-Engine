@@ -4,6 +4,10 @@ export class TrackAnalyticsEventDto {
   @IsString()
   workspaceId!: string;
 
+  @IsOptional()
+  @IsString()
+  conversationId?: string;
+
   @IsString()
   type!: string;
 

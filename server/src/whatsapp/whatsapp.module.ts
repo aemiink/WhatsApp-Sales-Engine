@@ -1,4 +1,5 @@
 import { forwardRef, Module } from '@nestjs/common';
+import { AnalyticsModule } from '../analytics/analytics.module';
 import { AppConfigModule } from '../config/app-config.module';
 import { ConversationsModule } from '../conversations/conversations.module';
 import { ExecutionModule } from '../execution/execution.module';
@@ -14,6 +15,7 @@ import { WhatsAppWebhookService } from './services/whatsapp-webhook.service';
 
 @Module({
   imports: [
+    AnalyticsModule,
     AppConfigModule,
     ConversationsModule,
     forwardRef(() => ExecutionModule),

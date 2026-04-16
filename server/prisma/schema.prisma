@@ -183,12 +183,14 @@ model HandoffSession {
 }
 
 model AnalyticsEvent {
-  id          String   @id @default(uuid())
-  workspaceId String
-  type        String
-  payloadJson Json?
-  createdAt   DateTime @default(now())
+  id             String   @id @default(uuid())
+  workspaceId    String
+  conversationId String?
+  type           String
+  payloadJson    Json?
+  createdAt      DateTime @default(now())
 
   @@index([workspaceId, type, createdAt])
+  @@index([workspaceId, conversationId, createdAt])
   @@map("analytics_events")
 }

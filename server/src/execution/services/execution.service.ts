@@ -1,4 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { LeadStage } from '@prisma/client';
+import { AnalyticsService } from '../../analytics/analytics.service';
+import { ConversationsService } from '../../conversations/conversations.service';
 import { SalesEngineService } from '../../sales-engine/sales-engine.service';
 import { EndHandoffExecutionDto } from '../dto/end-handoff.dto';
 import { ManualSendMessageDto } from '../dto/manual-send-message.dto';
@@ -13,6 +16,8 @@ export class ExecutionService {
 
   constructor(
     private readonly salesEngineService: SalesEngineService,
+    private readonly conversationsService: ConversationsService,
+    private readonly analyticsService: AnalyticsService,
     private readonly replyExecutorService: ReplyExecutorService,
     private readonly handoffExecutorService: HandoffExecutorService,
   ) {}
@@ -29,6 +34,30 @@ export class ExecutionService {
       conversationId,
       messageId,
     });
+
+    const conversation =
+      await this.conversationsService.getConversationById(conversationId);
+
+    if (conversation) {
+      await this.analyticsService.safeTrack({
+        workspaceId: conversation.workspaceId,
+        conversationId,
+        type: 'ai_decision_created',
+        payloadJson: {
+          messageId,
+          intent: decision.intent,
+          leadStage: decision.leadStage,
+          shouldSendReply: decision.shouldSendReply,
+          shouldHandoff: decision.shouldHandoff,
+          confidence: decision.confidence,
+        },
+      });
+
+      await this.syncLeadStage(conversationId, decision.leadStage, {
+        currentLeadStage: conversation.leadStage,
+        workspaceId: conversation.workspaceId,
+      });
+    }
 
     let handoffResult: unknown = null;
     if (decision.shouldHandoff) {
@@ -76,5 +105,74 @@ export class ExecutionService {
       conversationId,
       body.resumeMode ?? 'auto_reply',
     );
+  }
+
+  private async syncLeadStage(
+    conversationId: string,
+    targetStage: string,
+    input: {
+      currentLeadStage: LeadStage;
+      workspaceId: string;
+    },
+  ): Promise<void> {
+    const nextLeadStage = this.toPrismaLeadStage(targetStage);
+    if (input.currentLeadStage === nextLeadStage) {
+      return;
+    }
+
+    await this.conversationsService.updateLeadStage(
+      conversationId,
+      nextLeadStage,
+    );
+
+    await this.analyticsService.safeTrack({
+      workspaceId: input.workspaceId,
+      conversationId,
+      type: 'lead_stage_changed',
+      payloadJson: {
+        from: this.toStageLabel(input.currentLeadStage),
+        to: this.toStageLabel(nextLeadStage),
+      },
+    });
+  }
+
+  private toPrismaLeadStage(stage: string): LeadStage {
+    if (stage === 'qualified') {
+      return LeadStage.QUALIFIED;
+    }
+
+    if (stage === 'hot') {
+      return LeadStage.HOT;
+    }
+
+    if (stage === 'lost') {
+      return LeadStage.LOST;
+    }
+
+    if (stage === 'support') {
+      return LeadStage.SUPPORT;
+    }
+
+    return LeadStage.NEW;
+  }
+
+  private toStageLabel(stage: LeadStage): string {
+    if (stage === LeadStage.QUALIFIED) {
+      return 'qualified';
+    }
+
+    if (stage === LeadStage.HOT) {
+      return 'hot';
+    }
+
+    if (stage === LeadStage.LOST) {
+      return 'lost';
+    }
+
+    if (stage === LeadStage.SUPPORT) {
+      return 'support';
+    }
+
+    return 'new';
   }
 }

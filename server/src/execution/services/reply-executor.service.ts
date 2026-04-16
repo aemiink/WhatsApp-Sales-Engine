@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { MessageDirection, SenderType } from '@prisma/client';
+import { AnalyticsService } from '../../analytics/analytics.service';
 import { ConversationsService } from '../../conversations/conversations.service';
 import { PrismaService } from '../../database/prisma.service';
 import { FinalSalesDecision } from '../../sales-engine/types/final-sales-decision.types';
@@ -22,46 +23,82 @@ export class ReplyExecutorService {
     private readonly prisma: PrismaService,
     private readonly aiModeService: AiModeService,
     private readonly whatsappMessageSenderService: WhatsAppMessageSenderService,
+    private readonly analyticsService: AnalyticsService,
   ) {}
 
   async executeDecisionReply(
     conversationId: string,
     decision: FinalSalesDecision,
   ): Promise<ReplyExecutionResult> {
-    const mode = await this.aiModeService.getMode(conversationId);
-
-    if (mode === 'paused') {
-      return this.skip('ai_mode_paused');
-    }
-
-    if (mode === 'suggest_only') {
-      return this.skip('ai_mode_suggest_only');
-    }
-
-    if (!decision.shouldSendReply) {
-      return this.skip('decision_should_not_send');
-    }
-
-    const text = decision.suggestedReply.trim();
-    if (text.length === 0) {
-      return this.skip('empty_suggested_reply');
-    }
-
-    const duplicate = await this.hasRecentDuplicateReply(conversationId, text);
-    if (duplicate) {
-      return this.skip('duplicate_within_debounce_window');
-    }
-
     const conversation =
       await this.conversationsService.getConversationById(conversationId);
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
     }
 
+    const mode = await this.aiModeService.getMode(conversationId);
+    const basePayload = {
+      intent: decision.intent,
+      leadStage: decision.leadStage,
+      shouldHandoff: decision.shouldHandoff,
+    };
+
+    if (mode === 'paused') {
+      return this.skip('ai_mode_paused', {
+        workspaceId: conversation.workspaceId,
+        conversationId,
+        payloadJson: basePayload,
+      });
+    }
+
+    if (mode === 'suggest_only') {
+      return this.skip('ai_mode_suggest_only', {
+        workspaceId: conversation.workspaceId,
+        conversationId,
+        payloadJson: basePayload,
+      });
+    }
+
+    if (!decision.shouldSendReply) {
+      return this.skip('decision_should_not_send', {
+        workspaceId: conversation.workspaceId,
+        conversationId,
+        payloadJson: basePayload,
+      });
+    }
+
+    const text = decision.suggestedReply.trim();
+    if (text.length === 0) {
+      return this.skip('empty_suggested_reply', {
+        workspaceId: conversation.workspaceId,
+        conversationId,
+        payloadJson: basePayload,
+      });
+    }
+
+    const duplicate = await this.hasRecentDuplicateReply(conversationId, text);
+    if (duplicate) {
+      return this.skip('duplicate_within_debounce_window', {
+        workspaceId: conversation.workspaceId,
+        conversationId,
+        payloadJson: basePayload,
+      });
+    }
+
     await this.whatsappMessageSenderService.sendTextMessage({
       workspaceId: conversation.workspaceId,
       to: conversation.phoneNumber,
       text,
+    });
+
+    await this.analyticsService.safeTrack({
+      workspaceId: conversation.workspaceId,
+      conversationId,
+      type: 'reply_sent',
+      payloadJson: {
+        ...basePayload,
+        textLength: text.length,
+      },
     });
 
     this.logger.log(
@@ -123,7 +160,26 @@ export class ReplyExecutorService {
     return Boolean(existing);
   }
 
-  private skip(reason: string): ReplyExecutionResult {
+  private skip(
+    reason: string,
+    input?: {
+      workspaceId: string;
+      conversationId: string;
+      payloadJson?: Record<string, unknown>;
+    },
+  ): ReplyExecutionResult {
+    if (input) {
+      void this.analyticsService.safeTrack({
+        workspaceId: input.workspaceId,
+        conversationId: input.conversationId,
+        type: 'reply_skipped',
+        payloadJson: {
+          reason,
+          ...input.payloadJson,
+        },
+      });
+    }
+
     this.logger.log(`Reply skipped reason=${reason}`);
     return {
       sent: false,
