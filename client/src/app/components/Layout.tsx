@@ -1,14 +1,90 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router';
-import { LayoutDashboard, MessageSquare, GitBranch, Brain, Users, TrendingUp, Smartphone, Zap, Sparkles, LogOut, User } from 'lucide-react';
+import {
+  Brain,
+  Bot,
+  ChartSpline,
+  GitBranch,
+  LayoutDashboard,
+  LogOut,
+  MessageSquare,
+  Smartphone,
+  Sparkles,
+  User,
+  Users,
+  Zap,
+} from 'lucide-react';
 
-const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Live Chat', href: '/chat', icon: MessageSquare },
-  { name: 'Automation', href: '/automation', icon: GitBranch },
-  { name: 'AI Knowledge', href: '/ai-knowledge', icon: Brain },
-  { name: 'Leads', href: '/leads', icon: Users },
-  { name: 'Analytics', href: '/analytics', icon: TrendingUp },
-  { name: 'Connection', href: '/connection', icon: Smartphone },
+interface NavigationItem {
+  name: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  helper?: string;
+}
+
+const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
+  {
+    label: 'Operasyon',
+    items: [
+      {
+        name: 'Dashboard',
+        href: '/',
+        icon: LayoutDashboard,
+        helper: 'Genel durum',
+      },
+      {
+        name: 'Live Chat',
+        href: '/chat',
+        icon: MessageSquare,
+        helper: 'Canli konusmalar',
+      },
+      {
+        name: 'Lead Management',
+        href: '/leads',
+        icon: Users,
+        helper: 'Mini CRM',
+      },
+    ],
+  },
+  {
+    label: 'AI ve Icgoru',
+    items: [
+      {
+        name: 'Analytics',
+        href: '/analytics',
+        icon: ChartSpline,
+        helper: 'Performans',
+      },
+      {
+        name: 'AI Knowledge',
+        href: '/ai-knowledge',
+        icon: Brain,
+        helper: 'Brand training',
+      },
+      {
+        name: 'Automation',
+        href: '/automation',
+        icon: GitBranch,
+        helper: 'Akis yonetimi',
+      },
+    ],
+  },
+  {
+    label: 'Kurulum',
+    items: [
+      {
+        name: 'WhatsApp Connection',
+        href: '/connection',
+        icon: Smartphone,
+        helper: 'Baglanti durumu',
+      },
+      {
+        name: 'AI Setup',
+        href: '/ai-setup',
+        icon: Bot,
+        helper: 'Onboarding',
+      },
+    ],
+  },
 ];
 
 export function Layout() {
@@ -23,7 +99,7 @@ export function Layout() {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
       {/* Sidebar */}
-      <aside className="w-64 border-r border-border bg-gradient-to-b from-[#0f0f19] to-[#0a0a0f] backdrop-blur-xl">
+      <aside className="hidden w-80 border-r border-border bg-gradient-to-b from-[#0f0f19] to-[#0a0a0f] backdrop-blur-xl xl:block">
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="flex items-center gap-3 border-b border-border px-6 py-5">
@@ -40,30 +116,46 @@ export function Layout() {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-1 px-3 py-4">
-            {navigation.map((item) => {
-              const isActive = location.pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={`
-                    group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200
-                    ${
-                      isActive
-                        ? 'bg-primary/10 text-primary shadow-lg shadow-primary/20'
-                        : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                    }
-                  `}
-                >
-                  <item.icon className="h-5 w-5" />
-                  <span className="font-medium">{item.name}</span>
-                  {isActive && (
-                    <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary shadow-lg shadow-primary/50"></div>
-                  )}
-                </Link>
-              );
-            })}
+          <nav className="flex-1 space-y-5 px-3 py-4">
+            {navigationGroups.map((group) => (
+              <section key={group.label} className="space-y-2">
+                <h2 className="px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {group.label}
+                </h2>
+                <div className="space-y-1">
+                  {group.items.map((item) => {
+                    const isActive = location.pathname === item.href;
+                    return (
+                      <Link
+                        key={item.name}
+                        to={item.href}
+                        className={`
+                        group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200
+                        ${
+                          isActive
+                            ? 'bg-primary/10 text-primary shadow-lg shadow-primary/20'
+                            : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                        }
+                      `}
+                      >
+                        <item.icon className="h-5 w-5" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium">{item.name}</p>
+                          {item.helper ? (
+                            <p className="truncate text-xs text-muted-foreground">
+                              {item.helper}
+                            </p>
+                          ) : null}
+                        </div>
+                        {isActive && (
+                          <div className="h-2 w-2 rounded-full bg-primary shadow-lg shadow-primary/50"></div>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
           </nav>
 
           {/* Footer */}
@@ -111,6 +203,20 @@ export function Layout() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
+        <div className="border-b border-border bg-card/65 px-4 py-3 xl:hidden">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold">WhatsApp Sales Engine</span>
+            </div>
+            <Link
+              to="/chat"
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-black"
+            >
+              Live Chat
+            </Link>
+          </div>
+        </div>
         <Outlet />
       </main>
     </div>

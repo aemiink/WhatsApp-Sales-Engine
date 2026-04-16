@@ -1,431 +1,324 @@
-import { useState } from 'react';
-import { Globe, Instagram, Sparkles, Brain, MessageSquare, Shield, ArrowRight, Check, Loader2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router';
+import { PageHeader } from '../components/shared/PageHeader';
+import { EmptyState, LoadingState } from '../components/shared/PageStates';
 
 type SetupStep = 'website' | 'instagram' | 'brand-dna' | 'products' | 'rules';
+
+interface StepDefinition {
+  id: SetupStep;
+  title: string;
+  reason: string;
+  helper: string;
+}
+
+const steps: StepDefinition[] = [
+  {
+    id: 'website',
+    title: 'Website',
+    reason: 'AI marka dili, urun konumlandirmasi ve ana mesajlarini web iceriginden cikarir.',
+    helper: 'Markayi anlamak icin gerekli',
+  },
+  {
+    id: 'instagram',
+    title: 'Instagram',
+    reason: 'Iletisim tonu ve icerik stili sosyal medya paylasimlarindan ogrenilir.',
+    helper: 'Ton ve uslup adaptasyonu',
+  },
+  {
+    id: 'brand-dna',
+    title: 'Brand DNA',
+    reason: 'Otomatik cikarilan kimligi senin tercihinle netlestiririz.',
+    helper: 'Son karar kontrolu',
+  },
+  {
+    id: 'products',
+    title: 'Products',
+    reason: 'AI urunleri net bilirse fiyat ve deger anlatimini dogru yapar.',
+    helper: 'Satis dogrulugu',
+  },
+  {
+    id: 'rules',
+    title: 'Rules',
+    reason: 'Kritik sinirlar ve handoff kurallari operasyon riskini azaltir.',
+    helper: 'Guvenli otomasyon',
+  },
+];
+
+function stepIndex(step: SetupStep): number {
+  return steps.findIndex((item) => item.id === step);
+}
 
 export function AISetup() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState<SetupStep>('website');
   const [websiteUrl, setWebsiteUrl] = useState('');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [websiteAnalyzed, setWebsiteAnalyzed] = useState(false);
-  const [instagramConnected, setInstagramConnected] = useState(false);
+  const [instagramHandle, setInstagramHandle] = useState('@prompta.ai');
+  const [isWebsiteAnalyzing, setIsWebsiteAnalyzing] = useState(false);
+  const [isInstagramAnalyzing, setIsInstagramAnalyzing] = useState(false);
+  const [websiteReady, setWebsiteReady] = useState(false);
+  const [instagramReady, setInstagramReady] = useState(false);
+  const [brandTone, setBrandTone] = useState(
+    'Profesyonel, net ve cozum odakli ama sicak bir ton kullan.',
+  );
 
-  const handleAnalyzeWebsite = () => {
-    setIsAnalyzing(true);
+  const currentDefinition = useMemo(
+    () => steps.find((item) => item.id === currentStep)!,
+    [currentStep],
+  );
+
+  const moveStep = (direction: 1 | -1) => {
+    const next = stepIndex(currentStep) + direction;
+    const bounded = Math.min(Math.max(next, 0), steps.length - 1);
+    setCurrentStep(steps[bounded].id);
+  };
+
+  const analyzeWebsite = () => {
+    setIsWebsiteAnalyzing(true);
     setTimeout(() => {
-      setIsAnalyzing(false);
-      setWebsiteAnalyzed(true);
-    }, 2500);
+      setIsWebsiteAnalyzing(false);
+      setWebsiteReady(true);
+    }, 1400);
   };
 
-  const handleConnectInstagram = () => {
+  const analyzeInstagram = () => {
+    setIsInstagramAnalyzing(true);
     setTimeout(() => {
-      setInstagramConnected(true);
-    }, 1000);
+      setIsInstagramAnalyzing(false);
+      setInstagramReady(true);
+    }, 1200);
   };
 
-  const handleCreateAI = () => {
-    navigate('/ai-ready');
-  };
+  const canProceed = (() => {
+    if (currentStep === 'website') return websiteReady || websiteUrl.length === 0;
+    if (currentStep === 'instagram') return instagramReady;
+    return true;
+  })();
 
   return (
-    <div className="h-full overflow-auto bg-gradient-to-b from-background via-[#0a0a0f] to-[#0f0f19]">
-      <div className="mx-auto max-w-4xl p-8">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center p-4 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 mb-6">
-            <Brain className="h-12 w-12 text-primary" />
-          </div>
-          <h1 className="text-5xl font-bold tracking-tight mb-4 bg-gradient-to-r from-primary via-[#00d9ff] to-primary bg-clip-text text-transparent">
-            AI Satış Asistanını Kur
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Markanızı analiz ederek size özel satış asistanı oluşturalım
-          </p>
+    <div className="h-full overflow-auto bg-gradient-to-b from-background via-[#090911] to-[#0f0f18]">
+      <div className="mx-auto max-w-[1300px] p-6 md:p-8">
+        <PageHeader
+          title="AI Setup"
+          description="Form doldurmak yerine AI'i adim adim egit. Her adimda neden gerekli oldugunu gor ve kaydet-devam et akisini kullan."
+          badge={`Adim ${stepIndex(currentStep) + 1}/${steps.length}`}
+        />
+
+        <div className="mb-5 rounded-xl border border-border bg-card/60 p-4">
+          <ol className="grid gap-2 md:grid-cols-5">
+            {steps.map((step) => {
+              const current = step.id === currentStep;
+              const completed = stepIndex(step.id) < stepIndex(currentStep);
+              return (
+                <li
+                  key={step.id}
+                  className={`rounded-lg border p-3 transition-all ${
+                    current
+                      ? 'border-primary/40 bg-primary/10'
+                      : completed
+                        ? 'border-primary/30 bg-primary/5'
+                        : 'border-border bg-secondary/35'
+                  }`}
+                >
+                  <p className="mb-1 text-xs text-muted-foreground">{step.helper}</p>
+                  <p className="text-sm font-semibold">
+                    {completed ? '✓ ' : ''}
+                    {step.title}
+                  </p>
+                </li>
+              );
+            })}
+          </ol>
         </div>
 
-        {/* Progress Steps */}
-        <div className="flex items-center justify-between mb-12 px-8">
-          {[
-            { id: 'website', label: 'Website', icon: Globe },
-            { id: 'instagram', label: 'Instagram', icon: Instagram },
-            { id: 'brand-dna', label: 'Brand DNA', icon: Sparkles },
-            { id: 'products', label: 'Products', icon: MessageSquare },
-            { id: 'rules', label: 'Rules', icon: Shield },
-          ].map((step, idx) => {
-            const isActive = step.id === currentStep;
-            const isCompleted = ['website', 'instagram', 'brand-dna', 'products'].indexOf(currentStep) >
-                               ['website', 'instagram', 'brand-dna', 'products'].indexOf(step.id);
-
-            return (
-              <div key={step.id} className="flex items-center">
-                <div className={`flex flex-col items-center ${idx < 4 ? 'min-w-[100px]' : ''}`}>
-                  <div className={`h-12 w-12 rounded-full flex items-center justify-center border-2 transition-all ${
-                    isCompleted
-                      ? 'bg-primary border-primary text-black'
-                      : isActive
-                      ? 'border-primary bg-primary/10 text-primary shadow-lg shadow-primary/30'
-                      : 'border-border bg-secondary/30 text-muted-foreground'
-                  }`}>
-                    {isCompleted ? <Check className="h-6 w-6" /> : <step.icon className="h-6 w-6" />}
-                  </div>
-                  <span className={`text-xs mt-2 ${isActive ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>
-                    {step.label}
-                  </span>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <section className="rounded-xl border border-border bg-card/60 p-5">
+            {currentStep === 'website' ? (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold">Website analizi</h2>
+                <p className="text-sm text-muted-foreground">
+                  Web sitesi yoksa bu adimi atlayabilirsin. AI sonraki adimlardan
+                  da ogrenmeye devam eder.
+                </p>
+                <input
+                  value={websiteUrl}
+                  onChange={(event) => setWebsiteUrl(event.target.value)}
+                  placeholder="https://siteadresiniz.com"
+                  className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-sm outline-none focus:border-primary"
+                />
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={analyzeWebsite}
+                    disabled={!websiteUrl || isWebsiteAnalyzing}
+                    className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-black disabled:opacity-50"
+                  >
+                    Analizi baslat
+                  </button>
+                  <button
+                    onClick={() => setWebsiteReady(true)}
+                    className="rounded-lg border border-border bg-secondary/45 px-4 py-2 text-sm font-semibold"
+                  >
+                    Website yok, devam et
+                  </button>
                 </div>
-                {idx < 4 && (
-                  <div className={`h-0.5 w-16 mx-2 ${isCompleted ? 'bg-primary' : 'bg-border'}`}></div>
+                {isWebsiteAnalyzing ? (
+                  <LoadingState
+                    title="Website taraniyor"
+                    description="Sayfa icerikleri, marka tonu ve urun anlatimi cikariliyor."
+                  />
+                ) : null}
+                {!websiteUrl ? (
+                  <EmptyState
+                    title="Website girilmedi"
+                    description="Website baglantisi olmadan da kurulum tamamlanabilir. Instagram + Brand DNA adimlariyla devam edebilirsin."
+                  />
+                ) : null}
+                {websiteReady ? (
+                  <article className="rounded-lg border border-primary/35 bg-primary/10 p-4">
+                    <p className="mb-1 inline-flex items-center gap-2 text-sm font-semibold text-primary">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Analiz preview
+                    </p>
+                    <ul className="space-y-1 text-sm text-muted-foreground">
+                      <li>• Konumlandirma: AI destekli satis otomasyonu</li>
+                      <li>• Ton: profesyonel + guven veren</li>
+                      <li>• Ana vaat: hizli onboarding, otonom satis akis</li>
+                    </ul>
+                  </article>
+                ) : null}
+              </div>
+            ) : null}
+
+            {currentStep === 'instagram' ? (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold">Instagram analizi</h2>
+                <p className="text-sm text-muted-foreground">
+                  Icerik stilini AI'in cevap uslubuna dahil ediyoruz.
+                </p>
+                <input
+                  value={instagramHandle}
+                  onChange={(event) => setInstagramHandle(event.target.value)}
+                  placeholder="@marka_hesabi"
+                  className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-sm outline-none focus:border-primary"
+                />
+                <button
+                  onClick={analyzeInstagram}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-black"
+                >
+                  Instagrami analiz et
+                </button>
+                {isInstagramAnalyzing ? (
+                  <LoadingState
+                    title="Instagram icerigi okunuyor"
+                    description="Son postlar, caption kaliplari ve ton sinyalleri toplaniyor."
+                  />
+                ) : null}
+                {instagramReady ? (
+                  <article className="rounded-lg border border-primary/35 bg-primary/10 p-4">
+                    <p className="mb-1 inline-flex items-center gap-2 text-sm font-semibold text-primary">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Ton preview
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Egitici + sade + sonuc odakli bir icerik dili tespit edildi.
+                    </p>
+                  </article>
+                ) : (
+                  <EmptyState
+                    title="Instagram baglantisi bekleniyor"
+                    description="Baglanti kuruldugunda AI sosyal dilini daha hizli uyarlayacak."
+                  />
                 )}
               </div>
-            );
-          })}
+            ) : null}
+
+            {currentStep === 'brand-dna' ? (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold">Brand DNA</h2>
+                <p className="text-sm text-muted-foreground">
+                  AI ozetini duzenleyerek marka sesini netlestir.
+                </p>
+                <textarea
+                  rows={7}
+                  value={brandTone}
+                  onChange={(event) => setBrandTone(event.target.value)}
+                  className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-sm outline-none focus:border-primary"
+                />
+                <article className="rounded-lg border border-border bg-secondary/35 p-4 text-sm text-muted-foreground">
+                  Bu alan editable. Degisiklikler kaydedildiginde AI cevaplarina
+                  dogrudan etki eder.
+                </article>
+              </div>
+            ) : null}
+
+            {currentStep === 'products' ? (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold">Products</h2>
+                <p className="text-sm text-muted-foreground">
+                  Urun, paket ve fiyat bilgisini net gir. AI teklif asamasinda bunu
+                  dogrudan kullanir.
+                </p>
+                <textarea
+                  rows={8}
+                  defaultValue="Starter - 2,999 TL\nBusiness - 4,999 TL\nEnterprise - 9,999 TL\n\nTum paketlerde 14 gun deneme var."
+                  className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-sm outline-none focus:border-primary"
+                />
+              </div>
+            ) : null}
+
+            {currentStep === 'rules' ? (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold">Rules</h2>
+                <p className="text-sm text-muted-foreground">
+                  Kritik davranis kurallari ve temsilciye devir kosullarini belirle.
+                </p>
+                <textarea
+                  rows={8}
+                  defaultValue="- Indirim vaadi verme.\n- Teknik krizde handoff.\n- Müşteri sertlesirse tonu yumusat.\n- Demo talebinde randevu adimini one al."
+                  className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-sm outline-none focus:border-primary"
+                />
+                <button
+                  onClick={() => navigate('/ai-ready')}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-black"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  AI setup'i tamamla
+                </button>
+              </div>
+            ) : null}
+          </section>
+
+          <aside className="rounded-xl border border-border bg-card/60 p-5">
+            <h2 className="mb-2 text-lg font-bold">Bu adim neden gerekli?</h2>
+            <p className="mb-4 text-sm text-muted-foreground">
+              {currentDefinition.reason}
+            </p>
+            <div className="rounded-lg border border-primary/35 bg-primary/10 p-3 text-xs text-muted-foreground">
+              Ipucu: Her adimda kaydet ve devam et akisi kullanarak onboarding'i
+              kesintisiz tamamlayabilirsin.
+            </div>
+          </aside>
         </div>
 
-        {/* Section 1: Website Input */}
-        {currentStep === 'website' && (
-          <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="rounded-xl border border-border bg-card/60 backdrop-blur-xl p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-                  <Globe className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold">Website Analizi</h2>
-                  <p className="text-sm text-muted-foreground">Markanızı tanımak için web sitenizi analiz edelim</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-semibold mb-2 block">Website URL</label>
-                  <input
-                    type="url"
-                    value={websiteUrl}
-                    onChange={(e) => setWebsiteUrl(e.target.value)}
-                    placeholder="https://yourwebsite.com"
-                    className="w-full px-4 py-3 rounded-lg bg-input border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
-                  />
-                </div>
-
-                <button
-                  onClick={handleAnalyzeWebsite}
-                  disabled={!websiteUrl || isAnalyzing}
-                  className="w-full px-6 py-4 rounded-lg bg-primary hover:bg-primary/90 disabled:bg-secondary disabled:text-muted-foreground text-black font-semibold transition-all flex items-center justify-center gap-2 hover:scale-105 shadow-lg shadow-primary/30"
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      Website analiz ediliyor...
-                    </>
-                  ) : websiteAnalyzed ? (
-                    <>
-                      <Check className="h-5 w-5" />
-                      Analiz Tamamlandı
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-5 w-5" />
-                      Analiz Et
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {websiteAnalyzed && (
-                <div className="mt-6 p-6 rounded-lg border border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <h3 className="font-semibold mb-4 flex items-center gap-2 text-primary">
-                    <Check className="h-5 w-5" />
-                    Website Analiz Sonuçları
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Brand Name</p>
-                      <p className="font-semibold">Prompta AI</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Industry</p>
-                      <p className="font-semibold">AI & SaaS</p>
-                    </div>
-                    <div className="col-span-2">
-                      <p className="text-xs text-muted-foreground mb-2">Detected Tone</p>
-                      <div className="flex gap-2 flex-wrap">
-                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary/20 text-primary border border-primary/30">Professional</span>
-                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">Innovative</span>
-                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30">Tech-forward</span>
-                      </div>
-                    </div>
-                    <div className="col-span-2">
-                      <p className="text-xs text-muted-foreground mb-1">Positioning</p>
-                      <p className="text-sm">AI-powered automation platform for modern businesses</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setCurrentStep('instagram')}
-                    className="mt-6 w-full px-6 py-3 rounded-lg bg-primary hover:bg-primary/90 text-black font-semibold transition-all flex items-center justify-center gap-2"
-                  >
-                    Devam Et
-                    <ArrowRight className="h-5 w-5" />
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Section 2: Instagram Connection */}
-        {currentStep === 'instagram' && (
-          <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="rounded-xl border border-border bg-card/60 backdrop-blur-xl p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 rounded-lg bg-gradient-to-br from-pink-500/20 to-purple-500/20 border border-pink-500/30">
-                  <Instagram className="h-6 w-6 text-pink-400" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold">Instagram Bağlantısı</h2>
-                  <p className="text-sm text-muted-foreground">Marka tonunuzu ve içerik stilinizi öğrenelim</p>
-                </div>
-              </div>
-
-              {!instagramConnected ? (
-                <button
-                  onClick={handleConnectInstagram}
-                  className="w-full px-6 py-4 rounded-lg bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-semibold transition-all flex items-center justify-center gap-2 hover:scale-105 shadow-lg shadow-pink-500/30"
-                >
-                  <Instagram className="h-5 w-5" />
-                  Instagram'ı Bağla
-                </button>
-              ) : (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="p-6 rounded-lg border border-pink-500/30 bg-gradient-to-br from-pink-500/10 to-purple-500/10">
-                    <div className="flex items-center gap-4 mb-6">
-                      <div className="h-16 w-16 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center">
-                        <span className="text-xl font-bold text-white">PA</span>
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-lg">@prompta.ai</h3>
-                        <p className="text-sm text-muted-foreground">Bağlantı başarılı</p>
-                      </div>
-                      <Check className="h-6 w-6 text-primary ml-auto" />
-                    </div>
-
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-2">Content Style</p>
-                        <div className="flex gap-2 flex-wrap">
-                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary/20 text-primary border border-primary/30">Educational</span>
-                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">Visual</span>
-                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30">Modern</span>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Tone Hints</p>
-                        <p className="text-sm">Friendly, professional, solution-oriented communication</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-2">Sample Caption Style</p>
-                        <p className="text-sm italic text-foreground/80">"AI ile satışları otomatikleştirin 🚀 Daha fazla lead, daha az manuel iş..."</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => setCurrentStep('brand-dna')}
-                    className="w-full px-6 py-3 rounded-lg bg-primary hover:bg-primary/90 text-black font-semibold transition-all flex items-center justify-center gap-2"
-                  >
-                    Devam Et
-                    <ArrowRight className="h-5 w-5" />
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Section 3: Brand DNA */}
-        {currentStep === 'brand-dna' && (
-          <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="rounded-xl border border-border bg-card/60 backdrop-blur-xl p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-                  <Sparkles className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold">Brand DNA</h2>
-                  <p className="text-sm text-muted-foreground">AI tarafından oluşturuldu • İstediğiniz zaman düzenleyebilirsiniz</p>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div className="p-6 rounded-lg border border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">
-                  <label className="text-sm font-semibold mb-3 block">Brand Tone</label>
-                  <div className="flex gap-2 flex-wrap mb-4">
-                    {['Professional', 'Friendly', 'Innovative', 'Tech-savvy', 'Solution-focused'].map(tone => (
-                      <span key={tone} className="px-4 py-2 rounded-lg text-sm font-medium bg-primary/20 text-primary border border-primary/30 cursor-pointer hover:bg-primary/30 transition-all">
-                        {tone}
-                      </span>
-                    ))}
-                  </div>
-                  <button className="text-xs text-primary hover:underline">+ Add Custom Tone</button>
-                </div>
-
-                <div>
-                  <label className="text-sm font-semibold mb-3 block">Sales Style</label>
-                  <div className="grid grid-cols-3 gap-4">
-                    {[
-                      { value: 'soft', label: 'Soft Sell', desc: 'Consultative' },
-                      { value: 'balanced', label: 'Balanced', desc: 'Recommended' },
-                      { value: 'aggressive', label: 'Hard Sell', desc: 'Action-oriented' },
-                    ].map(style => (
-                      <label key={style.value} className="relative cursor-pointer">
-                        <input type="radio" name="salesStyle" value={style.value} defaultChecked={style.value === 'balanced'} className="peer sr-only" />
-                        <div className="rounded-lg border-2 border-border bg-secondary/30 p-4 transition-all peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:shadow-lg peer-checked:shadow-primary/20 hover:bg-secondary/50">
-                          <h3 className="font-semibold mb-1">{style.label}</h3>
-                          <p className="text-xs text-muted-foreground">{style.desc}</p>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-semibold mb-2 block">Target Audience</label>
-                  <textarea
-                    rows={3}
-                    defaultValue="SMB owners and entrepreneurs looking to automate their sales process with AI technology. Tech-savvy decision makers seeking innovative solutions."
-                    className="w-full px-4 py-3 rounded-lg bg-input border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm resize-none"
-                  />
-                </div>
-
-                <button
-                  onClick={() => setCurrentStep('products')}
-                  className="w-full px-6 py-3 rounded-lg bg-primary hover:bg-primary/90 text-black font-semibold transition-all flex items-center justify-center gap-2"
-                >
-                  Devam Et
-                  <ArrowRight className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Section 4: Products */}
-        {currentStep === 'products' && (
-          <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="rounded-xl border border-border bg-card/60 backdrop-blur-xl p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                  <MessageSquare className="h-6 w-6 text-blue-400" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold">Ürün & Hizmetler</h2>
-                  <p className="text-sm text-muted-foreground">AI'ın müşterilere ne sunacağını öğretin</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-semibold mb-2 block">Ürünlerinizi veya hizmetlerinizi anlatın</label>
-                  <textarea
-                    rows={6}
-                    placeholder="Örnek: WhatsApp Sales Engine - AI destekli satış otomasyonu. 3 paket: Starter (₺2,999), Business (₺4,999), Enterprise (₺9,999)"
-                    className="w-full px-4 py-3 rounded-lg bg-input border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm resize-none"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-semibold mb-2 block">Product Categories</label>
-                    <input
-                      type="text"
-                      placeholder="SaaS, AI Tools, Automation"
-                      className="w-full px-4 py-3 rounded-lg bg-input border border-border focus:border-primary focus:outline-none text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-semibold mb-2 block">Pricing Positioning</label>
-                    <select className="w-full px-4 py-3 rounded-lg bg-input border border-border focus:border-primary focus:outline-none text-sm">
-                      <option>Premium</option>
-                      <option>Mid-range</option>
-                      <option>Budget-friendly</option>
-                    </select>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setCurrentStep('rules')}
-                  className="w-full px-6 py-3 rounded-lg bg-primary hover:bg-primary/90 text-black font-semibold transition-all flex items-center justify-center gap-2"
-                >
-                  Devam Et
-                  <ArrowRight className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Section 5: Rules */}
-        {currentStep === 'rules' && (
-          <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="rounded-xl border border-border bg-card/60 backdrop-blur-xl p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                  <Shield className="h-6 w-6 text-red-400" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold">Satış Kuralları</h2>
-                  <p className="text-sm text-muted-foreground">AI'ın nasıl davranacağını belirleyin</p>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <label className="text-sm font-semibold mb-2 block">Sık Sorulan Sorular</label>
-                  <textarea
-                    rows={4}
-                    placeholder="S: Fiyatlar nedir?&#10;C: Paketlerimiz ₺2,999 - ₺9,999 arasında...&#10;&#10;S: Deneme var mı?&#10;C: 14 gün ücretsiz deneme sunuyoruz..."
-                    className="w-full px-4 py-3 rounded-lg bg-input border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-semibold mb-2 block">Asla söylenmemesi gerekenler</label>
-                  <textarea
-                    rows={3}
-                    placeholder="Rakip isimlerinden bahsetme, indirim vaadi verme, kesin tarih garantisi..."
-                    className="w-full px-4 py-3 rounded-lg bg-input border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-semibold mb-2 block">Temsilciye ne zaman devredilsin?</label>
-                  <div className="space-y-2">
-                    {[
-                      'Müşteri özel fiyat talebi yapınca',
-                      'Teknik soru sorunca',
-                      'Şikayet varsa',
-                      'Karar vermeye hazır olunca',
-                    ].map(rule => (
-                      <label key={rule} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 cursor-pointer transition-all">
-                        <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-border" />
-                        <span className="text-sm">{rule}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleCreateAI}
-                  className="w-full px-6 py-4 rounded-lg bg-gradient-to-r from-primary via-[#00d9ff] to-primary hover:opacity-90 text-black font-bold text-lg transition-all flex items-center justify-center gap-2 hover:scale-105 shadow-2xl shadow-primary/40"
-                >
-                  <Sparkles className="h-6 w-6" />
-                  AI Satış Asistanını Oluştur
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <footer className="sticky bottom-0 mt-5 flex items-center justify-between rounded-xl border border-border bg-card/85 p-4 backdrop-blur">
+          <button
+            onClick={() => moveStep(-1)}
+            disabled={currentStep === 'website'}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary/45 px-4 py-2 text-sm font-semibold disabled:opacity-40"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Geri
+          </button>
+          <button
+            onClick={() => moveStep(1)}
+            disabled={currentStep === 'rules' || !canProceed}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-black disabled:opacity-40"
+          >
+            Kaydet ve devam et
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        </footer>
       </div>
     </div>
   );

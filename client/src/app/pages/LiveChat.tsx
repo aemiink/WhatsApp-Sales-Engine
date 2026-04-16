@@ -1,348 +1,462 @@
-import { useState } from 'react';
-import { Send, Bot, User as UserIcon, Sparkles, CheckCheck, Clock, Target, AlertTriangle, Calendar, UserCog } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import {
+  Bot,
+  CalendarPlus2,
+  CheckCheck,
+  Clock3,
+  MessageCircle,
+  PauseCircle,
+  PlayCircle,
+  Search,
+  Send,
+  UserCircle2,
+  UserRoundCog,
+} from 'lucide-react';
+import { PageHeader } from '../components/shared/PageHeader';
+import { EmptyState } from '../components/shared/PageStates';
+import { StatusBadge } from '../components/shared/StatusBadge';
 
-const conversationsList = [
-  { id: 1, name: 'Ahmet Yılmaz', phone: '+90 532 123 4567', lastMessage: 'Ürün fiyatları hakkında bilgi alabilir miyim?', status: 'hot', unread: 2, time: '2 dk' },
-  { id: 2, name: 'Zeynep Demir', phone: '+90 543 987 6543', lastMessage: 'Teslimat süresi ne kadar?', status: 'qualified', unread: 0, time: '5 dk' },
-  { id: 3, name: 'Mehmet Kaya', phone: '+90 555 234 5678', lastMessage: 'Merhaba', status: 'new', unread: 1, time: '8 dk' },
-  { id: 4, name: 'Ayşe Şahin', phone: '+90 534 876 5432', lastMessage: 'Toplu alımda indirim var mı?', status: 'hot', unread: 3, time: '12 dk' },
+type ConversationFilter =
+  | 'all'
+  | 'unread'
+  | 'hot'
+  | 'handoff'
+  | 'paused';
+
+interface Conversation {
+  id: number;
+  name: string;
+  phone: string;
+  lastMessage: string;
+  unreadCount: number;
+  leadStage: 'new' | 'qualified' | 'hot' | 'support';
+  handoffActive: boolean;
+  aiPaused: boolean;
+  updatedAt: string;
+}
+
+interface TimelineMessage {
+  id: number;
+  role: 'customer' | 'ai' | 'human';
+  text: string;
+  time: string;
+  state?: 'sent' | 'delivered' | 'read';
+}
+
+const conversations: Conversation[] = [
+  {
+    id: 1,
+    name: 'Ahmet Yilmaz',
+    phone: '+90 532 123 45 67',
+    lastMessage: 'Business paket icin ROI hesabini gorebilir miyim?',
+    unreadCount: 2,
+    leadStage: 'hot',
+    handoffActive: false,
+    aiPaused: false,
+    updatedAt: '1 dk',
+  },
+  {
+    id: 2,
+    name: 'Zeynep Demir',
+    phone: '+90 543 987 65 43',
+    lastMessage: 'Yonetici onayi bekliyoruz, yarin donus yapacagim.',
+    unreadCount: 0,
+    leadStage: 'qualified',
+    handoffActive: false,
+    aiPaused: true,
+    updatedAt: '6 dk',
+  },
+  {
+    id: 3,
+    name: 'Merve Acar',
+    phone: '+90 535 111 22 33',
+    lastMessage: 'Teknik entegrasyon detayini temsilci anlatabilir mi?',
+    unreadCount: 1,
+    leadStage: 'support',
+    handoffActive: true,
+    aiPaused: false,
+    updatedAt: '9 dk',
+  },
 ];
 
-const messages = [
-  { id: 1, from: 'customer', text: 'Merhaba, ürünleriniz hakkında bilgi alabilir miyim?', time: '14:23', status: 'read' },
-  { id: 2, from: 'ai', text: 'Merhaba! Tabii ki, size yardımcı olmaktan mutluluk duyarım. Hangi ürün kategorisiyle ilgileniyorsunuz?', time: '14:23', status: 'delivered' },
-  { id: 3, from: 'customer', text: 'Premium paketlerinizi merak ediyorum', time: '14:24', status: 'read' },
-  { id: 4, from: 'ai', text: 'Harika! Premium paketlerimiz işletmeniz için en kapsamlı çözümleri sunuyor. 3 farklı premium paket seçeneğimiz var:\n\n• Starter Premium - ₺2,999/ay\n• Business Premium - ₺4,999/ay\n• Enterprise Premium - ₺9,999/ay\n\nHangi ölçekte bir işletme için araştırma yapıyorsunuz?', time: '14:24', status: 'delivered' },
-  { id: 5, from: 'customer', text: 'Orta ölçekli bir işletme için. Fiyat biraz yüksek gibi', time: '14:26', status: 'read' },
-  { id: 6, from: 'ai', text: 'Anlıyorum. Business Premium paketimiz tam size göre olabilir. Şu anda ilk 3 ay için %30 indirim kampanyamız var, yani ₺3,499/ay olacak.\n\nAyrıca yıllık ödeme yaparsanız 2 ay ücretsiz kazanırsınız. Bu size nasıl bir bütçe sağlar?', time: '14:26', status: 'delivered' },
+const timeline: TimelineMessage[] = [
+  {
+    id: 1,
+    role: 'customer',
+    text: 'Merhaba, Business paketinde onboarding sureci nasil ilerliyor?',
+    time: '14:11',
+    state: 'read',
+  },
+  {
+    id: 2,
+    role: 'ai',
+    text: 'Merhaba! Ortalama 2 is gununde kurulum tamamliyoruz. Ekibinizle birlikte onboarding checklist paylasiyorum.',
+    time: '14:12',
+    state: 'read',
+  },
+  {
+    id: 3,
+    role: 'customer',
+    text: 'ROI hesaplamasini da gormek istiyorum.',
+    time: '14:13',
+    state: 'read',
+  },
+  {
+    id: 4,
+    role: 'human',
+    text: 'Harika, 15 dakikalik bir gorusmede hem ROI hem de gecis planini paylasabilirim.',
+    time: '14:15',
+    state: 'delivered',
+  },
 ];
 
-const suggestedReplies = [
-  '💼 "Business Premium paketimiz tam size göre. ROI hesaplayalım mı?"',
-  '🎯 "Başarı hikayelerimizi paylaşayım - benzer işletmeler %40 artış gördü"',
-  '📅 "Ücretsiz demo ile sistemi canlı gösterelim"',
-  '💰 "Yıllık ödeme ile 2 ay hediye kazanırsınız"',
-];
+function stageBadge(stage: Conversation['leadStage']) {
+  if (stage === 'hot') {
+    return <StatusBadge tone="hot" label="hot lead" />;
+  }
+  if (stage === 'qualified') {
+    return <StatusBadge tone="qualified" label="qualified" />;
+  }
+  if (stage === 'support') {
+    return <StatusBadge tone="support" label="support" />;
+  }
+  return <StatusBadge tone="new" label="new" />;
+}
 
-const statusColors = {
-  new: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  qualified: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-  hot: 'bg-red-500/20 text-red-400 border-red-500/30',
-};
+function filterLabel(filter: ConversationFilter): string {
+  if (filter === 'unread') return 'Okunmamis';
+  if (filter === 'hot') return 'Hot lead';
+  if (filter === 'handoff') return 'Handoff';
+  if (filter === 'paused') return 'AI paused';
+  return 'Tum konusmalar';
+}
 
 export function LiveChat() {
-  const [selectedConv, setSelectedConv] = useState(conversationsList[0]);
-  const [aiMode, setAiMode] = useState<'auto' | 'manual'>('auto');
+  const [selectedId, setSelectedId] = useState(conversations[0]?.id ?? 0);
+  const [activeFilter, setActiveFilter] = useState<ConversationFilter>('all');
+  const [searchValue, setSearchValue] = useState('');
+  const [aiPaused, setAiPaused] = useState(false);
+  const [humanControl, setHumanControl] = useState(false);
+
+  const selectedConversation = conversations.find((item) => item.id === selectedId);
+
+  const filteredConversations = useMemo(() => {
+    return conversations.filter((conversation) => {
+      const searchMatch =
+        conversation.name.toLowerCase().includes(searchValue.toLowerCase()) ||
+        conversation.phone.includes(searchValue);
+
+      if (!searchMatch) {
+        return false;
+      }
+
+      if (activeFilter === 'unread') {
+        return conversation.unreadCount > 0;
+      }
+      if (activeFilter === 'hot') {
+        return conversation.leadStage === 'hot';
+      }
+      if (activeFilter === 'handoff') {
+        return conversation.handoffActive;
+      }
+      if (activeFilter === 'paused') {
+        return conversation.aiPaused;
+      }
+      return true;
+    });
+  }, [activeFilter, searchValue]);
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* Conversations List */}
-      <div className="w-80 border-r border-border bg-gradient-to-b from-[#0f0f19]/50 to-background overflow-y-auto">
-        <div className="sticky top-0 z-10 border-b border-border bg-card/80 backdrop-blur-xl px-4 py-4">
-          <h2 className="text-lg font-bold mb-3">Conversations</h2>
-          <input
-            type="text"
-            placeholder="Search conversations..."
-            className="w-full rounded-lg bg-input px-3 py-2 text-sm border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-          />
-        </div>
+    <div className="h-full overflow-auto bg-background">
+      <div className="mx-auto max-w-[1750px] p-5 md:p-6">
+        <PageHeader
+          title="Live Chat Cockpit"
+          description="Konusma durumu, AI ongorusu ve kritik aksiyonlar tek ekranda."
+          badge="Canli operasyon paneli"
+        />
 
-        <div className="divide-y divide-border">
-          {conversationsList.map((conv) => (
-            <div
-              key={conv.id}
-              onClick={() => setSelectedConv(conv)}
-              className={`px-4 py-4 cursor-pointer transition-all hover:bg-secondary/50 ${
-                selectedConv.id === conv.id ? 'bg-secondary/70 border-l-2 border-primary' : ''
-              }`}
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-sm">{conv.name}</h3>
-                  {conv.unread > 0 && (
-                    <span className="h-5 w-5 rounded-full bg-primary text-black text-xs flex items-center justify-center font-bold">
-                      {conv.unread}
-                    </span>
-                  )}
-                </div>
-                <span className="text-xs text-muted-foreground">{conv.time}</span>
-              </div>
-              <p className="text-xs text-muted-foreground mb-2 line-clamp-1">{conv.phone}</p>
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-foreground/70 line-clamp-1 flex-1">{conv.lastMessage}</p>
-                <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-medium border ${statusColors[conv.status as keyof typeof statusColors]}`}>
-                  {conv.status}
-                </span>
+        <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)_360px]">
+          <aside className="rounded-xl border border-border bg-card/60">
+            <div className="border-b border-border p-4">
+              <h2 className="text-lg font-bold">Conversations</h2>
+              <p className="text-xs text-muted-foreground">
+                Durumu bir bakista gor, hizli filtrele.
+              </p>
+              <div className="relative mt-3">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={searchValue}
+                  onChange={(event) => setSearchValue(event.target.value)}
+                  placeholder="Isim veya telefon ara"
+                  className="w-full rounded-lg border border-border bg-input py-2 pl-9 pr-3 text-sm outline-none focus:border-primary"
+                />
               </div>
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* Chat Window */}
-      <div className="flex-1 flex flex-col">
-        {/* Chat Header */}
-        <div className="border-b border-border bg-card/80 backdrop-blur-xl px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold">{selectedConv.name}</h2>
-              <p className="text-sm text-muted-foreground">{selectedConv.phone}</p>
+            <div className="border-b border-border p-3">
+              <div className="flex flex-wrap gap-2">
+                {(['all', 'unread', 'hot', 'handoff', 'paused'] as const).map(
+                  (filter) => (
+                    <button
+                      key={filter}
+                      onClick={() => setActiveFilter(filter)}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
+                        activeFilter === filter
+                          ? 'border-primary/40 bg-primary/15 text-primary'
+                          : 'border-border bg-secondary/50 text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {filterLabel(filter)}
+                    </button>
+                  ),
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <span className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${statusColors[selectedConv.status as keyof typeof statusColors]}`}>
-                {selectedConv.status.toUpperCase()}
-              </span>
-              {aiMode === 'auto' ? (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/30">
-                  <div className="h-2 w-2 rounded-full bg-primary animate-pulse"></div>
-                  <span className="text-sm font-semibold text-primary">AI Active</span>
-                </div>
+
+            <div className="max-h-[68vh] space-y-2 overflow-auto p-3">
+              {filteredConversations.length === 0 ? (
+                <EmptyState
+                  title="Filtreye uygun konusma yok"
+                  description="Filtreyi temizleyerek tum aktif konusmalari tekrar gorebilirsin."
+                />
               ) : (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/30">
-                  <UserCog className="h-4 w-4 text-blue-400" />
-                  <span className="text-sm font-semibold text-blue-400">Human Control</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gradient-to-b from-background to-[#0a0a0f]">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.from === 'customer' ? 'justify-start' : 'justify-end'}`}
-            >
-              <div className={`flex items-start gap-3 max-w-[70%] ${msg.from === 'customer' ? '' : 'flex-row-reverse'}`}>
-                <div className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  msg.from === 'customer'
-                    ? 'bg-secondary border border-border'
-                    : 'bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30'
-                }`}>
-                  {msg.from === 'customer' ? (
-                    <UserIcon className="h-4 w-4" />
-                  ) : (
-                    <Bot className="h-4 w-4 text-primary" />
-                  )}
-                </div>
-                <div>
-                  <div
-                    className={`rounded-2xl px-4 py-3 ${
-                      msg.from === 'customer'
-                        ? 'bg-secondary border border-border rounded-tl-none'
-                        : 'bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 rounded-tr-none'
+                filteredConversations.map((conversation) => (
+                  <button
+                    key={conversation.id}
+                    onClick={() => setSelectedId(conversation.id)}
+                    className={`w-full rounded-lg border p-3 text-left transition-all ${
+                      selectedId === conversation.id
+                        ? 'border-primary/45 bg-primary/10'
+                        : 'border-border bg-secondary/30 hover:bg-secondary/50'
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-line">{msg.text}</p>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1 px-2">
-                    <span className="text-xs text-muted-foreground">{msg.time}</span>
-                    {msg.from === 'ai' && (
-                      <CheckCheck className="h-3 w-3 text-primary" />
-                    )}
-                  </div>
-                </div>
-              </div>
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold">{conversation.name}</p>
+                        <p className="text-xs text-muted-foreground">{conversation.phone}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">
+                          {conversation.updatedAt}
+                        </p>
+                        {conversation.unreadCount > 0 ? (
+                          <span className="mt-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-black">
+                            {conversation.unreadCount}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="mb-2 flex flex-wrap gap-1.5">
+                      {stageBadge(conversation.leadStage)}
+                      {conversation.handoffActive ? (
+                        <StatusBadge tone="handoff" label="handoff active" />
+                      ) : null}
+                      {conversation.aiPaused ? (
+                        <StatusBadge tone="paused" label="ai paused" />
+                      ) : null}
+                    </div>
+                    <p className="line-clamp-2 text-xs text-muted-foreground">
+                      {conversation.lastMessage}
+                    </p>
+                  </button>
+                ))
+              )}
             </div>
-          ))}
-        </div>
+          </aside>
 
-        {/* Input Area */}
-        <div className="border-t border-border bg-card/80 backdrop-blur-xl p-4">
-          <div className="flex items-end gap-3">
-            <div className="flex-1 relative">
-              <textarea
-                placeholder="Type your message..."
-                rows={2}
-                className="w-full rounded-lg bg-input px-4 py-3 text-sm border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none transition-all"
-              />
-            </div>
-            <button className="h-[60px] px-6 rounded-lg bg-primary hover:bg-primary/90 text-black font-semibold flex items-center gap-2 transition-all hover:scale-105 hover:shadow-lg hover:shadow-primary/30">
-              <Send className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* AI Assistant Panel */}
-      <div className="w-96 border-l border-border bg-gradient-to-b from-[#0f0f19]/50 to-background overflow-y-auto">
-        <div className="sticky top-0 z-10 border-b border-border bg-card/80 backdrop-blur-xl px-6 py-4">
-          <h2 className="text-lg font-bold flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            AI Assistant
-          </h2>
-        </div>
-
-        <div className="p-6 space-y-6">
-          {/* Brand Context */}
-          <div className="rounded-lg border border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <h3 className="font-semibold text-sm text-primary">Brand Context</h3>
-            </div>
-            <div className="space-y-2 text-xs">
+          <section className="rounded-xl border border-border bg-card/60">
+            <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4">
               <div>
-                <span className="text-muted-foreground">Tone:</span>
-                <div className="flex gap-1 flex-wrap mt-1">
-                  <span className="px-2 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30">Professional</span>
-                  <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">Friendly</span>
-                </div>
+                <h2 className="text-lg font-bold">{selectedConversation?.name}</h2>
+                <p className="text-xs text-muted-foreground">
+                  {selectedConversation?.phone} • son guncelleme{' '}
+                  {selectedConversation?.updatedAt}
+                </p>
               </div>
-              <div>
-                <span className="text-muted-foreground">Positioning:</span>
-                <p className="text-foreground/80 mt-1">AI-powered automation for modern businesses</p>
+              <div className="flex flex-wrap gap-2">
+                {selectedConversation
+                  ? stageBadge(selectedConversation.leadStage)
+                  : null}
+                {humanControl ? (
+                  <StatusBadge tone="handoff" label="human control" />
+                ) : (
+                  <StatusBadge tone="active" label="ai responding" />
+                )}
+                {aiPaused ? <StatusBadge tone="paused" label="paused" /> : null}
               </div>
-              <div>
-                <span className="text-muted-foreground">Sales Style:</span>
-                <p className="text-foreground/80 mt-1">Balanced • Consultative approach</p>
-              </div>
-            </div>
-          </div>
+            </header>
 
-          {/* AI Reasoning */}
-          <div className="rounded-lg border border-blue-500/30 bg-gradient-to-br from-blue-500/10 to-blue-500/5 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="h-4 w-4 text-blue-400" />
-              <h3 className="font-semibold text-sm text-blue-400">AI Reasoning</h3>
-            </div>
-            <div className="space-y-3 text-xs">
-              <div>
-                <span className="text-muted-foreground font-semibold">Detected Intent:</span>
-                <p className="text-foreground/90 mt-1">Customer is price-sensitive but interested. Showing value proposition.</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground font-semibold">Why This Reply:</span>
-                <p className="text-foreground/90 mt-1">Addressing price objection by highlighting ROI and current discount campaign based on brand strategy.</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground font-semibold">Next Action:</span>
-                <p className="text-primary font-semibold mt-1">Schedule demo to show value in practice</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Detected Intent */}
-          <div className="rounded-lg border border-border bg-card/60 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Target className="h-4 w-4 text-primary" />
-              <h3 className="font-semibold text-sm">Intent Analysis</h3>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Type:</span>
-                <span className="text-sm font-medium text-yellow-400">Price Inquiry</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Confidence:</span>
-                <span className="text-sm font-medium text-primary">94%</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Conversion Probability:</span>
-                <span className="text-sm font-medium text-primary">75%</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Lead Stage */}
-          <div className="rounded-lg border border-border bg-card/60 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Clock className="h-4 w-4 text-blue-400" />
-              <h3 className="font-semibold text-sm">Lead Stage</h3>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
-                  <div className="h-full w-[75%] bg-gradient-to-r from-primary via-[#00d9ff] to-[#ff0080]"></div>
-                </div>
-                <span className="text-xs font-semibold text-primary">75%</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Müşteri fiyat itirazında bulundu. Değer önerisi güçlendirilmeli.
-              </p>
-            </div>
-          </div>
-
-          {/* Objection Detected */}
-          <div className="rounded-lg border border-red-500/30 bg-gradient-to-br from-red-500/10 to-red-500/5 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <AlertTriangle className="h-4 w-4 text-red-400" />
-              <h3 className="font-semibold text-sm text-red-400">Objection Detected</h3>
-            </div>
-            <p className="text-sm mb-3">Fiyat yüksek bulundu</p>
-            <div className="text-xs text-muted-foreground">
-              <strong className="text-foreground">Önerilen Yaklaşım:</strong>
-              <br />
-              Değer gösterimi yap, ROI hesapla, kampanya vurgula
-            </div>
-          </div>
-
-          {/* Suggested Replies */}
-          <div className="rounded-lg border border-border bg-card/60 p-4">
-            <h3 className="font-semibold text-sm mb-3">Suggested Replies</h3>
-            <div className="space-y-2">
-              {suggestedReplies.map((reply, idx) => (
-                <button
-                  key={idx}
-                  className="w-full text-left px-3 py-2 rounded-lg bg-secondary/50 hover:bg-primary/10 hover:border-primary/30 border border-border text-sm transition-all"
+            <div className="min-h-[58vh] space-y-4 bg-gradient-to-b from-background to-[#09090f] p-5">
+              {timeline.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${
+                    message.role === 'customer' ? 'justify-start' : 'justify-end'
+                  }`}
                 >
-                  {reply}
-                </button>
+                  <div
+                    className={`flex max-w-[82%] gap-2 ${
+                      message.role === 'customer'
+                        ? ''
+                        : 'flex-row-reverse text-right'
+                    }`}
+                  >
+                    <div
+                      className={`mt-1 flex h-7 w-7 items-center justify-center rounded-full border ${
+                        message.role === 'customer'
+                          ? 'border-border bg-secondary/70'
+                          : message.role === 'ai'
+                            ? 'border-primary/35 bg-primary/15 text-primary'
+                            : 'border-cyan-500/35 bg-cyan-500/15 text-cyan-200'
+                      }`}
+                    >
+                      {message.role === 'customer' ? (
+                        <UserCircle2 className="h-4 w-4" />
+                      ) : message.role === 'ai' ? (
+                        <Bot className="h-4 w-4" />
+                      ) : (
+                        <UserRoundCog className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div>
+                      <div
+                        className={`rounded-2xl border px-4 py-2.5 text-sm ${
+                          message.role === 'customer'
+                            ? 'rounded-tl-sm border-border bg-secondary/70'
+                            : message.role === 'ai'
+                              ? 'rounded-tr-sm border-primary/35 bg-primary/10'
+                              : 'rounded-tr-sm border-cyan-500/35 bg-cyan-500/10'
+                        }`}
+                      >
+                        {message.text}
+                      </div>
+                      <div className="mt-1 flex items-center gap-1 px-1 text-[11px] text-muted-foreground">
+                        <span>{message.time}</span>
+                        {message.state ? (
+                          <CheckCheck className="h-3.5 w-3.5 text-primary" />
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
-          </div>
 
-          {/* Recommended Actions */}
-          <div className="rounded-lg border border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 p-4">
-            <h3 className="font-semibold text-sm mb-3 text-primary">Recommended Next Action</h3>
-            <p className="text-sm text-foreground/90 mb-4">
-              Müşteri ilgili ve karar vermeye yakın. Demo önerisi yaparak süreci ilerlet.
-            </p>
-            <div className="flex gap-2">
-              <button className="flex-1 px-3 py-2 rounded-lg bg-primary hover:bg-primary/90 text-black font-semibold text-xs transition-all hover:scale-105">
-                Demo Planla
+            <footer className="border-t border-border p-4">
+              <div className="flex items-end gap-3">
+                <textarea
+                  rows={2}
+                  placeholder="Manuel mesaj gonder..."
+                  className="min-h-[62px] flex-1 rounded-lg border border-border bg-input px-3 py-2 text-sm outline-none focus:border-primary"
+                />
+                <button className="inline-flex h-[62px] items-center gap-2 rounded-lg bg-primary px-4 font-semibold text-black transition-all hover:bg-primary/90">
+                  <Send className="h-4 w-4" />
+                  Gonder
+                </button>
+              </div>
+            </footer>
+          </section>
+
+          <aside className="rounded-xl border border-border bg-card/60 p-4">
+            <div className="mb-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                AI Brain
+              </p>
+              <h2 className="text-lg font-bold">Karar paneli</h2>
+            </div>
+
+            <section className="space-y-2 rounded-lg border border-primary/35 bg-primary/10 p-3">
+              <p className="text-xs text-muted-foreground">Detected intent</p>
+              <p className="text-sm font-semibold text-primary">price objection</p>
+              <p className="text-xs text-muted-foreground">
+                Musteri urunu istiyor ama fiyat algisi yuksek.
+              </p>
+            </section>
+
+            <section className="mt-3 space-y-2 rounded-lg border border-yellow-500/35 bg-yellow-500/10 p-3">
+              <p className="text-xs text-muted-foreground">Lead stage</p>
+              <p className="text-sm font-semibold text-yellow-200">hot (close-ready)</p>
+              <p className="text-xs text-muted-foreground">
+                Sonraki ideal aksiyon: demo zamani almak.
+              </p>
+            </section>
+
+            <section className="mt-3 rounded-lg border border-border bg-secondary/35 p-3">
+              <p className="mb-1 text-xs text-muted-foreground">Suggested reply</p>
+              <p className="text-sm">
+                "Business pakette ROI hesabini birlikte cikartalim, 15 dakikada netlestirelim."
+              </p>
+            </section>
+
+            <section className="mt-3 rounded-lg border border-border bg-secondary/35 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">Confidence</p>
+                <p className="text-sm font-semibold text-primary">92%</p>
+              </div>
+              <div className="h-2 rounded-full bg-secondary">
+                <div className="h-full w-[92%] rounded-full bg-primary"></div>
+              </div>
+            </section>
+
+            <details className="mt-4 rounded-lg border border-border bg-secondary/25 p-3">
+              <summary className="cursor-pointer text-sm font-semibold">
+                Secondary insights
+              </summary>
+              <div className="mt-2 space-y-2 text-xs text-muted-foreground">
+                <p>Objection: "Fiyat yuksek".</p>
+                <p>Next best action: "Demo + ROI ekran paylasimi".</p>
+                <p>Risk: 15 dk icinde takip olmazsa soguma ihtimali artar.</p>
+              </div>
+            </details>
+
+            <div className="mt-5 space-y-2">
+              <button
+                onClick={() => setHumanControl(false)}
+                className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm font-bold text-black hover:bg-primary/90"
+              >
+                AI cevaplasin
               </button>
-              <button className="flex-1 px-3 py-2 rounded-lg bg-secondary hover:bg-secondary/70 font-semibold text-xs transition-all">
-                ROI Hesapla
+              <button
+                onClick={() => setHumanControl(true)}
+                className="w-full rounded-lg border border-cyan-500/35 bg-cyan-500/15 px-3 py-2.5 text-sm font-semibold text-cyan-200 hover:bg-cyan-500/25"
+              >
+                Temsilci devral
+              </button>
+              <button
+                onClick={() => setAiPaused((value) => !value)}
+                className="w-full rounded-lg border border-violet-500/35 bg-violet-500/15 px-3 py-2.5 text-sm font-semibold text-violet-200 hover:bg-violet-500/25"
+              >
+                {aiPaused ? (
+                  <span className="inline-flex items-center gap-2">
+                    <PlayCircle className="h-4 w-4" />
+                    AI resume
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-2">
+                    <PauseCircle className="h-4 w-4" />
+                    AI pause
+                  </span>
+                )}
+              </button>
+              <button className="w-full rounded-lg border border-orange-500/35 bg-orange-500/15 px-3 py-2.5 text-sm font-semibold text-orange-100 hover:bg-orange-500/25">
+                <span className="inline-flex items-center gap-2">
+                  <CalendarPlus2 className="h-4 w-4" />
+                  Randevu olustur
+                </span>
               </button>
             </div>
-          </div>
 
-          {/* AI Controls */}
-          <div className="space-y-2">
-            <button
-              onClick={() => setAiMode('auto')}
-              className={`w-full px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
-                aiMode === 'auto'
-                  ? 'bg-primary text-black shadow-lg shadow-primary/30'
-                  : 'bg-secondary hover:bg-secondary/70'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <Bot className="h-4 w-4" />
-                AI Cevaplasın
-              </div>
-            </button>
-            <button
-              onClick={() => setAiMode('manual')}
-              className={`w-full px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
-                aiMode === 'manual'
-                  ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
-                  : 'bg-secondary hover:bg-secondary/70'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <UserCog className="h-4 w-4" />
-                Temsilci Devral
-              </div>
-            </button>
-            <button className="w-full px-4 py-3 rounded-lg bg-gradient-to-r from-[#ff6b35]/20 via-[#ff0080]/20 to-[#8b5cf6]/20 hover:from-[#ff6b35]/30 hover:via-[#ff0080]/30 hover:to-[#8b5cf6]/30 border border-[#ff0080]/30 font-semibold text-sm transition-all">
-              <div className="flex items-center justify-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Randevu Oluştur
-              </div>
-            </button>
-          </div>
+            <div className="mt-4 rounded-lg border border-border bg-secondary/20 p-3 text-xs text-muted-foreground">
+              <p className="mb-1 inline-flex items-center gap-2">
+                <Clock3 className="h-3.5 w-3.5" />
+                Operasyon notu
+              </p>
+              <p>
+                Aksiyon butonlari oncelik sirasina gore dizildi: AI cevap, handoff,
+                pause/resume, randevu.
+              </p>
+            </div>
+          </aside>
         </div>
       </div>
     </div>
