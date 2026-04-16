@@ -1,4 +1,5 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { AppConfigService } from '../../config/app-config.service';
 import { MetaApiException } from '../errors/whatsapp.errors';
 import { maskPhoneNumber } from '../utils/phone-mask.util';
 import {
@@ -75,7 +76,10 @@ export function buildMetaSendTextRequest(
 export class MetaWhatsAppProvider implements WhatsAppProvider {
   private readonly logger = new Logger(MetaWhatsAppProvider.name);
 
-  constructor(private readonly connectionService: WhatsAppConnectionService) {}
+  constructor(
+    private readonly connectionService: WhatsAppConnectionService,
+    private readonly appConfigService: AppConfigService,
+  ) {}
 
   verifyWebhook(input: VerifyWebhookInput): VerifyWebhookResult {
     if (input.mode !== 'subscribe') {
@@ -125,18 +129,31 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     );
 
     let response: Response;
+    const controller = new AbortController();
+    const timeoutMs = this.appConfigService.whatsappProviderTimeoutMs ?? 12000;
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       response = await fetch(request.url, {
         method: 'POST',
         headers: request.headers,
         body: JSON.stringify(request.payload),
+        signal: controller.signal,
       });
     } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new MetaApiException(
+          HttpStatus.GATEWAY_TIMEOUT,
+          'Meta Graph API request timed out',
+        );
+      }
+
       throw new MetaApiException(
         HttpStatus.BAD_GATEWAY,
         'Failed to reach Meta Graph API',
         error,
       );
+    } finally {
+      clearTimeout(timeout);
     }
 
     const body = await this.parseResponseBody(response);

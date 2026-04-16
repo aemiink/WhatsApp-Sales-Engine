@@ -7,16 +7,13 @@ import {
 } from '@prisma/client';
 import { DEFAULT_WORKSPACE_ID } from '../common/constants/workspace.constants';
 import { PrismaService } from '../database/prisma.service';
-import {
-  ANALYTICS_EVENT_TYPES,
-  AnalyticsEventType,
-} from './constants/analytics-event-types';
+import { ANALYTICS_EVENT_TYPES } from './constants/analytics-event-types';
 import { TrackAnalyticsEventDto } from './dto/track-analytics-event.dto';
 
 export interface TrackAnalyticsInput {
   workspaceId: string;
   conversationId?: string | null;
-  type: AnalyticsEventType | string;
+  type: string;
   payloadJson?: Record<string, unknown>;
 }
 

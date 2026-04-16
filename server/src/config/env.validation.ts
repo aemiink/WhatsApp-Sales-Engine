@@ -1,6 +1,30 @@
 import * as Joi from 'joi';
 import { AI_DEFAULT_PROVIDERS } from './env.types';
 
+const DEV_SECRET_HINTS = [
+  'change-me',
+  'replace-with',
+  'example',
+  'test',
+  'dev',
+];
+
+function isWeakSecret(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return DEV_SECRET_HINTS.some((hint) => normalized.includes(hint));
+}
+
+function parseCorsOrigins(value: unknown): string[] {
+  if (typeof value !== 'string') {
+    return [];
+  }
+
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'test', 'production')
@@ -9,20 +33,26 @@ export const envValidationSchema = Joi.object({
   APP_VERSION: Joi.string().trim().optional().allow(''),
   DATABASE_URL: Joi.string().trim().required(),
   DIRECT_URL: Joi.string().trim().required(),
-  JWT_ACCESS_SECRET: Joi.string()
-    .trim()
-    .min(16)
-    .default('dev-access-secret-change-me'),
-  JWT_REFRESH_SECRET: Joi.string()
-    .trim()
-    .min(16)
-    .default('dev-refresh-secret-change-me'),
+  JWT_ACCESS_SECRET: Joi.string().trim().min(16).required(),
+  JWT_REFRESH_SECRET: Joi.string().trim().min(16).required(),
   JWT_ACCESS_EXPIRES_IN_SECONDS: Joi.number().integer().min(60).default(900),
   JWT_REFRESH_EXPIRES_IN_SECONDS: Joi.number()
     .integer()
     .min(900)
     .default(604800),
-  AUTH_BYPASS_IN_TEST: Joi.boolean().default(true),
+  AUTH_BYPASS_IN_TEST: Joi.boolean().default(false),
+  AUTH_ALLOW_DEV_BOOTSTRAP: Joi.boolean().default(false),
+  AUTH_RATE_LIMIT_WINDOW_MS: Joi.number().integer().min(1000).default(60000),
+  AUTH_RATE_LIMIT_MAX_REQUESTS: Joi.number().integer().min(1).default(30),
+  WEBHOOK_RATE_LIMIT_WINDOW_MS: Joi.number().integer().min(1000).default(60000),
+  WEBHOOK_RATE_LIMIT_MAX_REQUESTS: Joi.number().integer().min(1).default(300),
+  CORS_ALLOWED_ORIGINS: Joi.string()
+    .trim()
+    .default('http://localhost:5173,http://127.0.0.1:5173'),
+  CORS_ALLOW_CREDENTIALS: Joi.boolean().default(true),
+  TRUST_PROXY: Joi.boolean().default(false),
+  API_REQUEST_BODY_LIMIT: Joi.string().trim().default('1mb'),
+  SECURITY_HEADERS_ENABLED: Joi.boolean().default(true),
   AI_DEFAULT_PROVIDER: Joi.string()
     .valid(...AI_DEFAULT_PROVIDERS)
     .required(),
@@ -61,11 +91,102 @@ export const envValidationSchema = Joi.object({
   WHATSAPP_PHONE_NUMBER_ID: Joi.string().trim().required(),
   WHATSAPP_BUSINESS_ACCOUNT_ID: Joi.string().trim().optional().allow(''),
   WHATSAPP_WEBHOOK_VERIFY_TOKEN: Joi.string().trim().required(),
+  WHATSAPP_APP_SECRET: Joi.string().trim().optional().allow(''),
+  WHATSAPP_WEBHOOK_SIGNATURE_REQUIRED: Joi.boolean().default(false),
+  WHATSAPP_PROVIDER_TIMEOUT_MS: Joi.number().integer().min(1000).default(12000),
   META_GRAPH_API_VERSION: Joi.string()
     .trim()
     .pattern(/^v\d+\.\d+$/)
     .required(),
+  WEBSITE_FETCH_TIMEOUT_MS: Joi.number().integer().min(1000).default(8000),
+  WEBSITE_FETCH_MAX_PAGES: Joi.number().integer().min(1).max(10).default(4),
+  WEBSITE_FETCH_MAX_RESPONSE_BYTES: Joi.number()
+    .integer()
+    .min(50_000)
+    .max(2_000_000)
+    .default(500_000),
   RESEND_API_KEY: Joi.string().trim().optional().allow(''),
+  EMAIL_PROVIDER_TIMEOUT_MS: Joi.number().integer().min(1000).default(10000),
   EMAIL_FROM_ADDRESS: Joi.string().trim().email().optional().allow(''),
   APP_BASE_URL: Joi.string().trim().uri().optional().allow(''),
-}).unknown(true);
+})
+  .custom((value: Record<string, unknown>, helpers) => {
+    const nodeEnv = value.NODE_ENV;
+    const authBypassInTest = Boolean(value.AUTH_BYPASS_IN_TEST);
+    const corsAllowCredentials = Boolean(value.CORS_ALLOW_CREDENTIALS);
+    const corsOrigins = parseCorsOrigins(value.CORS_ALLOWED_ORIGINS);
+    const signatureRequired = Boolean(
+      value.WHATSAPP_WEBHOOK_SIGNATURE_REQUIRED,
+    );
+    const webhookAppSecret =
+      typeof value.WHATSAPP_APP_SECRET === 'string'
+        ? value.WHATSAPP_APP_SECRET.trim()
+        : '';
+
+    if (authBypassInTest && nodeEnv !== 'test') {
+      return helpers.error('any.custom', {
+        message:
+          'AUTH_BYPASS_IN_TEST can only be enabled when NODE_ENV is test.',
+      });
+    }
+
+    if (signatureRequired && webhookAppSecret.length < 16) {
+      return helpers.error('any.custom', {
+        message:
+          'WHATSAPP_APP_SECRET must be provided with minimum 16 characters when webhook signature check is enabled.',
+      });
+    }
+
+    if (corsAllowCredentials && corsOrigins.includes('*')) {
+      return helpers.error('any.custom', {
+        message:
+          'CORS_ALLOWED_ORIGINS cannot include * when CORS_ALLOW_CREDENTIALS is true.',
+      });
+    }
+
+    if (nodeEnv === 'production') {
+      const accessSecret =
+        typeof value.JWT_ACCESS_SECRET === 'string'
+          ? value.JWT_ACCESS_SECRET
+          : '';
+      const refreshSecret =
+        typeof value.JWT_REFRESH_SECRET === 'string'
+          ? value.JWT_REFRESH_SECRET
+          : '';
+
+      if (isWeakSecret(accessSecret) || isWeakSecret(refreshSecret)) {
+        return helpers.error('any.custom', {
+          message:
+            'JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must not use placeholder/test-style values in production.',
+        });
+      }
+
+      if (accessSecret === refreshSecret) {
+        return helpers.error('any.custom', {
+          message:
+            'JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be different in production.',
+        });
+      }
+
+      if (!signatureRequired) {
+        return helpers.error('any.custom', {
+          message:
+            'WHATSAPP_WEBHOOK_SIGNATURE_REQUIRED must be true in production.',
+        });
+      }
+
+      const appBaseUrl =
+        typeof value.APP_BASE_URL === 'string' ? value.APP_BASE_URL : '';
+      if (appBaseUrl.length > 0 && !appBaseUrl.startsWith('https://')) {
+        return helpers.error('any.custom', {
+          message: 'APP_BASE_URL must use https:// in production.',
+        });
+      }
+    }
+
+    return value;
+  })
+  .messages({
+    'any.custom': '{{#message}}',
+  })
+  .unknown(true);

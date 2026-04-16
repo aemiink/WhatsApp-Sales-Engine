@@ -50,7 +50,7 @@ export class AuthService {
       },
     });
 
-    if (!user && this.appConfigService.nodeEnv !== 'production') {
+    if (!user && this.appConfigService.authAllowDevBootstrap) {
       user = await this.bootstrapDevelopmentUser(input);
     }
 

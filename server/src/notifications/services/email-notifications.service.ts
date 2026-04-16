@@ -70,9 +70,14 @@ export class EmailNotificationsService {
       `Email send requested type=${input.type} recipientCount=${input.recipients.length}`,
     );
 
+    const controller = new AbortController();
+    const timeoutMs = this.appConfigService.emailProviderTimeoutMs ?? 10000;
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
@@ -109,11 +114,21 @@ export class EmailNotificationsService {
         providerMessageId: body.id,
       };
     } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        this.logger.error(`Email send timed out type=${input.type}`);
+        return {
+          sent: false,
+          reason: 'timeout',
+        };
+      }
+
       this.logger.error(`Email send failed type=${input.type}`, error as Error);
       return {
         sent: false,
         reason: 'network_error',
       };
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -178,8 +193,17 @@ export class EmailNotificationsService {
 
     return {
       subject: input.title,
-      html: `<p>${input.message}</p>`,
+      html: `<p>${this.escapeHtml(input.message)}</p>`,
       text: `${input.title}\n${input.message}`,
     };
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
   }
 }

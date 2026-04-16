@@ -5,12 +5,10 @@ import {
   Get,
   Param,
   Post,
-  Query,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import type { RequestUser } from '../auth/interfaces/request-user.interface';
-import { GetAnalyticsQueryDto } from './dto/get-analytics-query.dto';
 import { TrackAnalyticsEventDto } from './dto/track-analytics-event.dto';
 import { AnalyticsService } from './analytics.service';
 
@@ -45,34 +43,22 @@ export class AnalyticsController {
   }
 
   @Get('overview')
-  async getOverview(
-    @CurrentUser() user: RequestUser,
-    @Query() _query: GetAnalyticsQueryDto,
-  ) {
+  async getOverview(@CurrentUser() user: RequestUser) {
     return this.analyticsService.getOverview(user.workspaceId);
   }
 
   @Get('funnel')
-  async getFunnel(
-    @CurrentUser() user: RequestUser,
-    @Query() _query: GetAnalyticsQueryDto,
-  ) {
+  async getFunnel(@CurrentUser() user: RequestUser) {
     return this.analyticsService.getFunnel(user.workspaceId);
   }
 
   @Get('conversations')
-  async getConversationMetrics(
-    @CurrentUser() user: RequestUser,
-    @Query() _query: GetAnalyticsQueryDto,
-  ) {
+  async getConversationMetrics(@CurrentUser() user: RequestUser) {
     return this.analyticsService.getConversationMetrics(user.workspaceId);
   }
 
   @Get('ai')
-  async getAiPerformance(
-    @CurrentUser() user: RequestUser,
-    @Query() _query: GetAnalyticsQueryDto,
-  ) {
+  async getAiPerformance(@CurrentUser() user: RequestUser) {
     return this.analyticsService.getAiPerformance(user.workspaceId);
   }
 }

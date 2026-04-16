@@ -5,9 +5,14 @@ import {
 
 describe('MetaWhatsAppProvider', () => {
   it('validates webhook challenge correctly', () => {
-    const provider = new MetaWhatsAppProvider({
-      resolveConnection: jest.fn(),
-    } as never);
+    const provider = new MetaWhatsAppProvider(
+      {
+        resolveConnection: jest.fn(),
+      } as never,
+      {
+        whatsappProviderTimeoutMs: 12000,
+      } as never,
+    );
 
     expect(
       provider.verifyWebhook({

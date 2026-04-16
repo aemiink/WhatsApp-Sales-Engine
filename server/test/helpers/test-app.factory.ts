@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { App } from 'supertest/types';
+import { createRequire } from 'module';
 import { applyBaseTestEnv } from './env.helper';
 
 interface ProviderOverride {
@@ -14,14 +14,15 @@ interface CreateTestAppOptions {
 }
 
 export async function createTestApp(options?: CreateTestAppOptions): Promise<{
-  app: INestApplication<App>;
+  app: INestApplication;
   moduleFixture: TestingModule;
 }> {
   applyBaseTestEnv(options?.env);
-  // `import()` is not available under current ts-jest runtime options.
-  const { AppModule } = require('../../src/app.module') as {
-    AppModule: any;
-  };
+  const nodeRequire = createRequire(__filename);
+  const appModuleImport = nodeRequire(
+    '../../src/app.module',
+  ) as typeof import('../../src/app.module');
+  const { AppModule } = appModuleImport;
 
   let builder = Test.createTestingModule({
     imports: [AppModule],

@@ -20,7 +20,7 @@ export class InboundEventQueueService {
     private readonly appConfigService: AppConfigService,
   ) {}
 
-  async enqueue(input: {
+  enqueue(input: {
     workspaceId: string;
     conversationId: string;
     messageId: string;
@@ -29,12 +29,12 @@ export class InboundEventQueueService {
 
     if (this.completedJobs.has(jobId)) {
       this.logger.log(`Queue dedup skip completed jobId=${jobId}`);
-      return { queued: true, jobId };
+      return Promise.resolve({ queued: true, jobId });
     }
 
     if (this.inFlightJobs.has(jobId)) {
       this.logger.log(`Queue dedup skip in-flight jobId=${jobId}`);
-      return { queued: true, jobId };
+      return Promise.resolve({ queued: true, jobId });
     }
 
     this.schedule(
@@ -48,7 +48,7 @@ export class InboundEventQueueService {
     );
 
     this.logger.log(`Queue enqueue inbound execution jobId=${jobId}`);
-    return { queued: true, jobId };
+    return Promise.resolve({ queued: true, jobId });
   }
 
   getStats() {

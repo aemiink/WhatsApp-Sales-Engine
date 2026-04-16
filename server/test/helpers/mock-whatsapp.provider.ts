@@ -20,21 +20,20 @@ export class MockWhatsAppProvider implements WhatsAppProvider {
     this.failAttemptsRemaining = Math.max(0, count);
   }
 
-  verifyWebhook(_input: VerifyWebhookInput): VerifyWebhookResult {
+  verifyWebhook(input: VerifyWebhookInput): VerifyWebhookResult {
+    void input;
     return this.verifyResponse;
   }
 
-  async sendTextMessage(
-    input: SendTextMessageInput,
-  ): Promise<SendTextMessageResult> {
+  sendTextMessage(input: SendTextMessageInput): Promise<SendTextMessageResult> {
     if (this.failAttemptsRemaining > 0) {
       this.failAttemptsRemaining -= 1;
-      throw new Error('Mock WhatsApp send failure');
+      return Promise.reject(new Error('Mock WhatsApp send failure'));
     }
 
     this.sentMessages.push(input);
 
-    return {
+    return Promise.resolve({
       messagingProduct: 'whatsapp',
       contacts: [
         {
@@ -50,6 +49,6 @@ export class MockWhatsAppProvider implements WhatsAppProvider {
       rawResponse: {
         ok: true,
       },
-    };
+    });
   }
 }

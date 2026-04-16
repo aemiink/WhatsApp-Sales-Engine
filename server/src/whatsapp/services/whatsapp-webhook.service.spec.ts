@@ -1,3 +1,4 @@
+import { createHmac } from 'crypto';
 import { AppConfigService } from '../../config/app-config.service';
 import { ConversationsService } from '../../conversations/conversations.service';
 import { MessageStatusService } from '../../conversations/message-status.service';
@@ -12,6 +13,7 @@ import { WhatsAppWebhookService } from './whatsapp-webhook.service';
 
 describe('WhatsAppWebhookService', () => {
   const parser = new WhatsAppMessageParserService();
+  const appSecret = 'test-whatsapp-app-secret-value';
 
   const connectionServiceMock = {
     resolveConnection: jest.fn().mockResolvedValue({
@@ -57,6 +59,7 @@ describe('WhatsAppWebhookService', () => {
       } as unknown as WhatsAppDedupService,
       {
         whatsappWebhookVerifyToken: 'verify-token',
+        whatsappWebhookSignatureRequired: false,
       } as AppConfigService,
       connectionServiceMock,
       conversationsServiceMock,
@@ -90,6 +93,7 @@ describe('WhatsAppWebhookService', () => {
       } as unknown as WhatsAppDedupService,
       {
         whatsappWebhookVerifyToken: 'verify-token',
+        whatsappWebhookSignatureRequired: false,
       } as AppConfigService,
       connectionServiceMock,
       conversationsServiceMock,
@@ -123,6 +127,7 @@ describe('WhatsAppWebhookService', () => {
       dedupMock,
       {
         whatsappWebhookVerifyToken: 'verify-token',
+        whatsappWebhookSignatureRequired: false,
       } as AppConfigService,
       connectionServiceMock,
       conversationsServiceMock,
@@ -158,5 +163,90 @@ describe('WhatsAppWebhookService', () => {
     });
 
     expect(response.duplicateCount).toBe(1);
+  });
+
+  it('rejects webhook payload when signature check is enabled and header is invalid', async () => {
+    const service = new WhatsAppWebhookService(
+      {
+        verifyWebhook: jest.fn(),
+        sendTextMessage: jest.fn(),
+      },
+      parser,
+      {
+        createInboundDedupKey: jest.fn().mockReturnValue('dedup-1'),
+        isDuplicate: jest.fn().mockResolvedValue(false),
+      } as unknown as WhatsAppDedupService,
+      {
+        whatsappWebhookVerifyToken: 'verify-token',
+        whatsappWebhookSignatureRequired: true,
+        whatsappAppSecret: appSecret,
+      } as AppConfigService,
+      connectionServiceMock,
+      conversationsServiceMock,
+      messagesServiceMock,
+      messageStatusServiceMock,
+      analyticsServiceMock,
+      inboundQueueServiceMock,
+    );
+
+    await expect(
+      service.ingestWebhook(
+        {
+          object: 'whatsapp_business_account',
+          entry: [],
+        },
+        {
+          signatureHeader:
+            'sha256=0000000000000000000000000000000000000000000000000000000000000000',
+          rawBody: Buffer.from(
+            JSON.stringify({
+              object: 'whatsapp_business_account',
+              entry: [],
+            }),
+          ),
+        },
+      ),
+    ).rejects.toThrow(InvalidWebhookChallengeException);
+  });
+
+  it('accepts webhook payload when signature is valid', async () => {
+    const service = new WhatsAppWebhookService(
+      {
+        verifyWebhook: jest.fn(),
+        sendTextMessage: jest.fn(),
+      },
+      parser,
+      {
+        createInboundDedupKey: jest.fn().mockReturnValue('dedup-1'),
+        isDuplicate: jest.fn().mockResolvedValue(false),
+      } as unknown as WhatsAppDedupService,
+      {
+        whatsappWebhookVerifyToken: 'verify-token',
+        whatsappWebhookSignatureRequired: true,
+        whatsappAppSecret: appSecret,
+      } as AppConfigService,
+      connectionServiceMock,
+      conversationsServiceMock,
+      messagesServiceMock,
+      messageStatusServiceMock,
+      analyticsServiceMock,
+      inboundQueueServiceMock,
+    );
+
+    const payload = {
+      object: 'whatsapp_business_account',
+      entry: [],
+    };
+    const rawBody = Buffer.from(JSON.stringify(payload));
+    const signature = createHmac('sha256', appSecret)
+      .update(rawBody)
+      .digest('hex');
+
+    const result = await service.ingestWebhook(payload, {
+      signatureHeader: `sha256=${signature}`,
+      rawBody,
+    });
+
+    expect(result.received).toBe(true);
   });
 });

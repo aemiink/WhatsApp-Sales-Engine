@@ -1,4 +1,7 @@
+import { lookup } from 'dns/promises';
+import { isIP } from 'net';
 import { Injectable, Logger } from '@nestjs/common';
+import { AppConfigService } from '../config/app-config.service';
 import {
   FetchedWebsitePage,
   WebsiteFetchResult,
@@ -23,11 +26,24 @@ const CANDIDATE_PATH_HINTS = [
 @Injectable()
 export class WebsiteFetcherService {
   private readonly logger = new Logger(WebsiteFetcherService.name);
-  private readonly fetchTimeoutMs = 8000;
-  private readonly maxPages = 4;
+  private readonly hostnameSafetyCache = new Map<string, true>();
+
+  constructor(private readonly appConfigService: AppConfigService) {}
+
+  private get fetchTimeoutMs(): number {
+    return this.appConfigService.websiteFetchTimeoutMs ?? 8000;
+  }
+
+  private get maxPages(): number {
+    return this.appConfigService.websiteFetchMaxPages ?? 4;
+  }
+
+  private get maxResponseBytes(): number {
+    return this.appConfigService.websiteFetchMaxResponseBytes ?? 500_000;
+  }
 
   async fetchWebsite(websiteUrl: string): Promise<WebsiteFetchResult> {
-    const normalizedRootUrl = this.normalizeRootUrl(websiteUrl);
+    const normalizedRootUrl = await this.normalizeRootUrl(websiteUrl);
     const rootPage = await this.fetchSinglePage(normalizedRootUrl);
 
     const warnings: string[] = [];
@@ -68,7 +84,7 @@ export class WebsiteFetcherService {
     };
   }
 
-  private normalizeRootUrl(websiteUrl: string): string {
+  private async normalizeRootUrl(websiteUrl: string): Promise<string> {
     let parsed: URL;
     try {
       parsed = new URL(websiteUrl.trim());
@@ -85,6 +101,8 @@ export class WebsiteFetcherService {
     if (!parsed.pathname || parsed.pathname === '') {
       parsed.pathname = '/';
     }
+
+    await this.assertPublicHttpTarget(parsed);
 
     return parsed.toString();
   }
@@ -161,6 +179,9 @@ export class WebsiteFetcherService {
   }
 
   private async fetchSinglePage(url: string): Promise<FetchedWebsitePage> {
+    const parsedUrl = new URL(url);
+    await this.assertPublicHttpTarget(parsedUrl);
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.fetchTimeoutMs);
 
@@ -185,12 +206,21 @@ export class WebsiteFetcherService {
         };
       }
 
-      const html = await response.text();
+      const { text: html, truncated } = await this.readResponseTextWithLimit(
+        response,
+        this.maxResponseBytes,
+      );
+      const overLimitError = truncated
+        ? `HTML response exceeded ${this.maxResponseBytes} bytes and was truncated`
+        : null;
+
       return {
         url,
         status: response.status,
         html,
-        error: response.ok ? null : `HTTP ${response.status}`,
+        error: !response.ok
+          ? `HTTP ${response.status}`
+          : (overLimitError ?? null),
       };
     } catch (error: unknown) {
       const message =
@@ -204,5 +234,187 @@ export class WebsiteFetcherService {
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  private async readResponseTextWithLimit(
+    response: Response,
+    maxBytes: number,
+  ): Promise<{ text: string; truncated: boolean }> {
+    const body = response.body;
+    if (!body) {
+      const text = await response.text();
+      const bufferSize = Buffer.byteLength(text, 'utf8');
+      if (bufferSize <= maxBytes) {
+        return {
+          text,
+          truncated: false,
+        };
+      }
+
+      return {
+        text: text.slice(0, maxBytes),
+        truncated: true,
+      };
+    }
+
+    const reader = body.getReader();
+    const decoder = new TextDecoder();
+    let totalBytes = 0;
+    let content = '';
+    let truncated = false;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+
+      if (!value) {
+        continue;
+      }
+
+      const remaining = maxBytes - totalBytes;
+      if (remaining <= 0) {
+        truncated = true;
+        await reader.cancel();
+        break;
+      }
+
+      if (value.byteLength > remaining) {
+        content += decoder.decode(value.subarray(0, remaining), {
+          stream: true,
+        });
+        truncated = true;
+        await reader.cancel();
+        break;
+      }
+
+      totalBytes += value.byteLength;
+      content += decoder.decode(value, { stream: true });
+    }
+
+    content += decoder.decode();
+
+    return {
+      text: content,
+      truncated,
+    };
+  }
+
+  private async assertPublicHttpTarget(url: URL): Promise<void> {
+    const hostname = url.hostname.trim().toLowerCase();
+    if (this.hostnameSafetyCache.has(hostname)) {
+      return;
+    }
+
+    if (this.isBlockedHostname(hostname)) {
+      throw new Error(
+        'Website URL must target a public host. Local/private hosts are blocked.',
+      );
+    }
+
+    const hostIpVersion = isIP(hostname);
+    if (hostIpVersion > 0 && this.isPrivateIp(hostname)) {
+      throw new Error(
+        'Website URL resolves to private network IP and cannot be fetched.',
+      );
+    }
+
+    let records: Array<{ address: string }>;
+    try {
+      records = await lookup(hostname, {
+        all: true,
+        verbatim: true,
+      });
+    } catch {
+      throw new Error('Website hostname could not be resolved.');
+    }
+
+    if (records.length === 0) {
+      throw new Error('Website hostname could not be resolved.');
+    }
+
+    for (const record of records) {
+      if (this.isPrivateIp(record.address)) {
+        throw new Error(
+          'Website URL resolves to private network IP and cannot be fetched.',
+        );
+      }
+    }
+
+    this.hostnameSafetyCache.set(hostname, true);
+  }
+
+  private isBlockedHostname(hostname: string): boolean {
+    return (
+      hostname === 'localhost' ||
+      hostname.endsWith('.localhost') ||
+      hostname.endsWith('.local')
+    );
+  }
+
+  private isPrivateIp(address: string): boolean {
+    const version = isIP(address);
+    if (version === 4) {
+      return this.isPrivateIpv4(address);
+    }
+    if (version === 6) {
+      return this.isPrivateIpv6(address);
+    }
+    return false;
+  }
+
+  private isPrivateIpv4(address: string): boolean {
+    const parts = address.split('.').map((part) => Number(part));
+    if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part))) {
+      return false;
+    }
+
+    const [a, b] = parts;
+
+    if (a === 10 || a === 127 || a === 0) {
+      return true;
+    }
+
+    if (a === 169 && b === 254) {
+      return true;
+    }
+
+    if (a === 172 && b >= 16 && b <= 31) {
+      return true;
+    }
+
+    if (a === 192 && b === 168) {
+      return true;
+    }
+
+    if (a === 100 && b >= 64 && b <= 127) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private isPrivateIpv6(address: string): boolean {
+    const normalized = address.toLowerCase();
+
+    if (normalized === '::1' || normalized === '::') {
+      return true;
+    }
+
+    if (normalized.startsWith('fc') || normalized.startsWith('fd')) {
+      return true;
+    }
+
+    if (/^fe[89ab]/.test(normalized)) {
+      return true;
+    }
+
+    if (normalized.startsWith('::ffff:')) {
+      const mappedIpv4 = normalized.replace('::ffff:', '');
+      return isIP(mappedIpv4) === 4 && this.isPrivateIpv4(mappedIpv4);
+    }
+
+    return false;
   }
 }

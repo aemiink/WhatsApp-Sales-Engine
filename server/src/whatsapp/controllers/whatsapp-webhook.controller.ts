@@ -2,15 +2,21 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   Post,
   Query,
+  Req,
   Res,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { Public } from '../../auth/decorators/public.decorator';
 import { WhatsAppWebhookVerificationQueryDto } from '../dto/webhook-verification-query.dto';
 import { WhatsAppWebhookService } from '../services/whatsapp-webhook.service';
+
+interface RawBodyRequest extends Request {
+  rawBody?: Buffer;
+}
 
 @Controller('webhooks/whatsapp')
 export class WhatsAppWebhookController {
@@ -36,7 +42,14 @@ export class WhatsAppWebhookController {
   @Public()
   @Post()
   @HttpCode(200)
-  ingestWebhook(@Body() payload: unknown) {
-    return this.webhookService.ingestWebhook(payload);
+  ingestWebhook(
+    @Body() payload: unknown,
+    @Headers('x-hub-signature-256') signatureHeader: string | undefined,
+    @Req() request: RawBodyRequest,
+  ) {
+    return this.webhookService.ingestWebhook(payload, {
+      signatureHeader,
+      rawBody: request.rawBody,
+    });
   }
 }

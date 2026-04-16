@@ -5,6 +5,19 @@ import {
 } from '@prisma/client';
 import { AnalyticsService } from './analytics.service';
 
+interface MessageCountArgs {
+  where?: {
+    direction?: MessageDirection;
+  };
+}
+
+interface ConversationCountArgs {
+  where?: {
+    leadStage?: LeadStage;
+    status?: ConversationStatus;
+  };
+}
+
 describe('AnalyticsService', () => {
   it('tracks event with conversationId', async () => {
     const createMock = jest.fn().mockResolvedValue({ id: 'evt-1' });
@@ -42,12 +55,13 @@ describe('AnalyticsService', () => {
         create: jest.fn(),
       },
       message: {
-        count: jest.fn().mockImplementation(({ where }) => {
-          if (where.direction === MessageDirection.OUTBOUND) {
+        count: jest.fn().mockImplementation((args: MessageCountArgs = {}) => {
+          const direction = args.where?.direction;
+          if (direction === MessageDirection.OUTBOUND) {
             return Promise.resolve(8);
           }
 
-          if (where.direction === MessageDirection.INBOUND) {
+          if (direction === MessageDirection.INBOUND) {
             return Promise.resolve(10);
           }
 
@@ -77,17 +91,22 @@ describe('AnalyticsService', () => {
         ]),
       },
       conversation: {
-        count: jest.fn().mockImplementation(({ where }) => {
-          if (where.leadStage === LeadStage.HOT) {
-            return Promise.resolve(4);
-          }
+        count: jest
+          .fn()
+          .mockImplementation((args: ConversationCountArgs = {}) => {
+            const leadStage = args.where?.leadStage;
+            const status = args.where?.status;
 
-          if (where.status === ConversationStatus.CLOSED) {
-            return Promise.resolve(2);
-          }
+            if (leadStage === LeadStage.HOT) {
+              return Promise.resolve(4);
+            }
 
-          return Promise.resolve(10);
-        }),
+            if (status === ConversationStatus.CLOSED) {
+              return Promise.resolve(2);
+            }
+
+            return Promise.resolve(10);
+          }),
       },
       handoffSession: {
         findMany: jest

@@ -17,6 +17,68 @@ interface StoredNotification {
   updatedAt: Date;
 }
 
+interface NotificationOrFilter {
+  userId: string | null;
+}
+
+interface NotificationWhereFilter {
+  id?: string;
+  workspaceId: string;
+  OR: NotificationOrFilter[];
+  isRead?: boolean;
+}
+
+interface NotificationCreateArgs {
+  data: {
+    workspaceId: string;
+    userId?: string | null;
+    type: NotificationType;
+    channel: NotificationChannel;
+    title: string;
+    message: string;
+    payloadJson?: unknown;
+  };
+}
+
+interface NotificationFindManyArgs {
+  where: NotificationWhereFilter;
+  take?: number;
+}
+
+interface NotificationCountArgs {
+  where: NotificationWhereFilter;
+}
+
+interface NotificationUpdateManyArgs {
+  where: NotificationWhereFilter;
+  data: {
+    isRead?: boolean;
+  };
+}
+
+interface NotificationFindUniqueArgs {
+  where: {
+    id: string;
+  };
+}
+
+interface NotificationUpdateArgs {
+  where: {
+    id: string;
+  };
+  data: {
+    emailSentAt?: Date | null;
+  };
+}
+
+function asPayloadJson(value: unknown): Record<string, unknown> | null {
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+
+  return null;
+}
+
 function createInMemoryPrisma() {
   const rows: StoredNotification[] = [];
   let sequence = 0;
@@ -29,7 +91,8 @@ function createInMemoryPrisma() {
     rows,
     prisma: {
       notification: {
-        create: jest.fn().mockImplementation(({ data }) => {
+        create: jest.fn().mockImplementation((args: NotificationCreateArgs) => {
+          const { data } = args;
           sequence += 1;
           const row: StoredNotification = {
             id: `n-${sequence}`,
@@ -40,8 +103,7 @@ function createInMemoryPrisma() {
             title: data.title,
             message: data.message,
             isRead: false,
-            payloadJson:
-              (data.payloadJson as Record<string, unknown> | undefined) ?? null,
+            payloadJson: asPayloadJson(data.payloadJson),
             emailSentAt: null,
             createdAt: now(),
             updatedAt: now(),
@@ -49,14 +111,43 @@ function createInMemoryPrisma() {
           rows.push(row);
           return Promise.resolve(row);
         }),
-        findMany: jest.fn().mockImplementation(({ where, take }) => {
+        findMany: jest
+          .fn()
+          .mockImplementation((args: NotificationFindManyArgs) => {
+            const { where } = args;
+            const take =
+              typeof args.take === 'number' ? args.take : rows.length;
+
+            const scoped = rows.filter((row) => {
+              if (row.workspaceId !== where.workspaceId) {
+                return false;
+              }
+
+              const allowedUserIds = where.OR.map((entry) => entry.userId);
+              if (!allowedUserIds.includes(row.userId)) {
+                return false;
+              }
+
+              if (
+                typeof where.isRead === 'boolean' &&
+                row.isRead !== where.isRead
+              ) {
+                return false;
+              }
+
+              return true;
+            });
+
+            return Promise.resolve(scoped.slice(0, take));
+          }),
+        count: jest.fn().mockImplementation((args: NotificationCountArgs) => {
+          const { where } = args;
           const scoped = rows.filter((row) => {
             if (row.workspaceId !== where.workspaceId) {
               return false;
             }
 
-            const or = where.OR as Array<{ userId: string | null }>;
-            const allowedUserIds = or.map((entry) => entry.userId);
+            const allowedUserIds = where.OR.map((entry) => entry.userId);
             if (!allowedUserIds.includes(row.userId)) {
               return false;
             }
@@ -71,77 +162,59 @@ function createInMemoryPrisma() {
             return true;
           });
 
-          return Promise.resolve(scoped.slice(0, take));
-        }),
-        count: jest.fn().mockImplementation(({ where }) => {
-          const count = rows.filter((row) => {
-            if (row.workspaceId !== where.workspaceId) {
-              return false;
-            }
-
-            const or = where.OR as Array<{ userId: string | null }>;
-            const allowedUserIds = or.map((entry) => entry.userId);
-            if (!allowedUserIds.includes(row.userId)) {
-              return false;
-            }
-
-            if (
-              typeof where.isRead === 'boolean' &&
-              row.isRead !== where.isRead
-            ) {
-              return false;
-            }
-
-            return true;
-          }).length;
+          const count = scoped.length;
 
           return Promise.resolve(count);
         }),
-        updateMany: jest.fn().mockImplementation(({ where, data }) => {
-          let count = 0;
-          for (const row of rows) {
-            if (where.id && row.id !== where.id) {
-              continue;
-            }
-            if (row.workspaceId !== where.workspaceId) {
-              continue;
-            }
-            const or = where.OR as Array<{ userId: string | null }>;
-            const allowedUserIds = or.map((entry) => entry.userId);
-            if (!allowedUserIds.includes(row.userId)) {
-              continue;
-            }
-            if (
-              typeof where.isRead === 'boolean' &&
-              row.isRead !== where.isRead
-            ) {
-              continue;
+        updateMany: jest
+          .fn()
+          .mockImplementation((args: NotificationUpdateManyArgs) => {
+            const { where, data } = args;
+            let count = 0;
+            for (const row of rows) {
+              if (where.id && row.id !== where.id) {
+                continue;
+              }
+              if (row.workspaceId !== where.workspaceId) {
+                continue;
+              }
+              const allowedUserIds = where.OR.map((entry) => entry.userId);
+              if (!allowedUserIds.includes(row.userId)) {
+                continue;
+              }
+              if (
+                typeof where.isRead === 'boolean' &&
+                row.isRead !== where.isRead
+              ) {
+                continue;
+              }
+
+              if (typeof data.isRead === 'boolean') {
+                row.isRead = data.isRead;
+              }
+              row.updatedAt = now();
+              count += 1;
             }
 
-            if (typeof data.isRead === 'boolean') {
-              row.isRead = data.isRead;
+            return Promise.resolve({ count });
+          }),
+        findUniqueOrThrow: jest
+          .fn()
+          .mockImplementation((args: NotificationFindUniqueArgs) => {
+            const row = rows.find((entry) => entry.id === args.where.id);
+            if (!row) {
+              throw new Error('not found');
             }
-            row.updatedAt = now();
-            count += 1;
-          }
 
-          return Promise.resolve({ count });
-        }),
-        findUniqueOrThrow: jest.fn().mockImplementation(({ where }) => {
-          const row = rows.find((entry) => entry.id === where.id);
+            return Promise.resolve(row);
+          }),
+        update: jest.fn().mockImplementation((args: NotificationUpdateArgs) => {
+          const row = rows.find((entry) => entry.id === args.where.id);
           if (!row) {
             throw new Error('not found');
           }
 
-          return Promise.resolve(row);
-        }),
-        update: jest.fn().mockImplementation(({ where, data }) => {
-          const row = rows.find((entry) => entry.id === where.id);
-          if (!row) {
-            throw new Error('not found');
-          }
-
-          row.emailSentAt = data.emailSentAt ?? row.emailSentAt;
+          row.emailSentAt = args.data.emailSentAt ?? row.emailSentAt;
           row.updatedAt = now();
           return Promise.resolve(row);
         }),

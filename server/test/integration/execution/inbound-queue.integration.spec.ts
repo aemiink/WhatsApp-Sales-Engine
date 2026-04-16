@@ -9,21 +9,21 @@ describe('InboundEventQueueService (integration)', () => {
     let attempt = 0;
 
     const executionServiceMock = {
-      executeForInboundMessage: jest.fn().mockImplementation(async () => {
+      executeForInboundMessage: jest.fn().mockImplementation(() => {
         attempt += 1;
 
         if (attempt < 2) {
-          throw new Error('Transient execution failure');
+          return Promise.reject(new Error('Transient execution failure'));
         }
 
-        return {
+        return Promise.resolve({
           decision: {},
           handoff: null,
           reply: {
             sent: false,
             skipped: true,
           },
-        };
+        });
       }),
     } as Pick<ExecutionService, 'executeForInboundMessage'>;
 

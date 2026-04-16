@@ -12,6 +12,14 @@ export class AppConfigService {
     return this.configService.getOrThrow('NODE_ENV');
   }
 
+  get isProduction(): boolean {
+    return this.nodeEnv === 'production';
+  }
+
+  get isTest(): boolean {
+    return this.nodeEnv === 'test';
+  }
+
   get port(): number {
     return this.configService.getOrThrow<number>('PORT');
   }
@@ -54,21 +62,58 @@ export class AppConfigService {
   }
 
   get authBypassInTest(): boolean {
-    const value = this.configService.getOrThrow<boolean | string>(
-      'AUTH_BYPASS_IN_TEST',
-    );
+    return this.getBoolean('AUTH_BYPASS_IN_TEST', false);
+  }
 
-    if (typeof value === 'boolean') {
-      return value;
-    }
+  get authAllowDevBootstrap(): boolean {
+    return this.getBoolean('AUTH_ALLOW_DEV_BOOTSTRAP', false);
+  }
 
-    const normalized = value.trim().toLowerCase();
-    return (
-      normalized === 'true' ||
-      normalized === '1' ||
-      normalized === 'yes' ||
-      normalized === 'on'
+  get authRateLimitWindowMs(): number {
+    return this.configService.getOrThrow<number>('AUTH_RATE_LIMIT_WINDOW_MS');
+  }
+
+  get authRateLimitMaxRequests(): number {
+    return this.configService.getOrThrow<number>(
+      'AUTH_RATE_LIMIT_MAX_REQUESTS',
     );
+  }
+
+  get webhookRateLimitWindowMs(): number {
+    return this.configService.getOrThrow<number>(
+      'WEBHOOK_RATE_LIMIT_WINDOW_MS',
+    );
+  }
+
+  get webhookRateLimitMaxRequests(): number {
+    return this.configService.getOrThrow<number>(
+      'WEBHOOK_RATE_LIMIT_MAX_REQUESTS',
+    );
+  }
+
+  get corsAllowedOrigins(): string[] {
+    const value = this.configService.getOrThrow<string>('CORS_ALLOWED_ORIGINS');
+
+    return value
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0);
+  }
+
+  get corsAllowCredentials(): boolean {
+    return this.getBoolean('CORS_ALLOW_CREDENTIALS', true);
+  }
+
+  get trustProxy(): boolean {
+    return this.getBoolean('TRUST_PROXY', false);
+  }
+
+  get apiRequestBodyLimit(): string {
+    return this.configService.getOrThrow<string>('API_REQUEST_BODY_LIMIT');
+  }
+
+  get securityHeadersEnabled(): boolean {
+    return this.getBoolean('SECURITY_HEADERS_ENABLED', true);
   }
 
   get aiDefaultProvider(): AiDefaultProvider {
@@ -160,13 +205,46 @@ export class AppConfigService {
     );
   }
 
+  get whatsappAppSecret(): string | undefined {
+    const value = this.configService.get<string>('WHATSAPP_APP_SECRET');
+    return value && value.length > 0 ? value : undefined;
+  }
+
+  get whatsappWebhookSignatureRequired(): boolean {
+    return this.getBoolean('WHATSAPP_WEBHOOK_SIGNATURE_REQUIRED', false);
+  }
+
+  get whatsappProviderTimeoutMs(): number {
+    return this.configService.getOrThrow<number>(
+      'WHATSAPP_PROVIDER_TIMEOUT_MS',
+    );
+  }
+
   get metaGraphApiVersion(): string {
     return this.configService.getOrThrow<string>('META_GRAPH_API_VERSION');
+  }
+
+  get websiteFetchTimeoutMs(): number {
+    return this.configService.getOrThrow<number>('WEBSITE_FETCH_TIMEOUT_MS');
+  }
+
+  get websiteFetchMaxPages(): number {
+    return this.configService.getOrThrow<number>('WEBSITE_FETCH_MAX_PAGES');
+  }
+
+  get websiteFetchMaxResponseBytes(): number {
+    return this.configService.getOrThrow<number>(
+      'WEBSITE_FETCH_MAX_RESPONSE_BYTES',
+    );
   }
 
   get resendApiKey(): string | undefined {
     const value = this.configService.get<string>('RESEND_API_KEY');
     return value && value.length > 0 ? value : undefined;
+  }
+
+  get emailProviderTimeoutMs(): number {
+    return this.configService.getOrThrow<number>('EMAIL_PROVIDER_TIMEOUT_MS');
   }
 
   get emailFromAddress(): string | undefined {
@@ -181,5 +259,27 @@ export class AppConfigService {
     }
 
     return 'http://localhost:5173';
+  }
+
+  private getBoolean(
+    key: keyof EnvironmentVariables,
+    fallback: boolean,
+  ): boolean {
+    const value = this.configService.get<boolean | string | undefined>(key);
+    if (value === undefined || value === null || value === '') {
+      return fallback;
+    }
+
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    return (
+      normalized === 'true' ||
+      normalized === '1' ||
+      normalized === 'yes' ||
+      normalized === 'on'
+    );
   }
 }

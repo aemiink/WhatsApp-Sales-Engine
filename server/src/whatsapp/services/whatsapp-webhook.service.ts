@@ -1,4 +1,5 @@
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { AnalyticsService } from '../../analytics/analytics.service';
 import { AppConfigService } from '../../config/app-config.service';
@@ -47,6 +48,11 @@ interface WebhookProcessSummary {
   duplicateCount: number;
   ignoredCount: number;
   errorCount: number;
+}
+
+interface IngestWebhookSecurityContext {
+  signatureHeader?: string;
+  rawBody?: Buffer;
 }
 
 @Injectable()
@@ -107,7 +113,10 @@ export class WhatsAppWebhookService {
     return verification.challenge;
   }
 
-  async ingestWebhook(payload: unknown): Promise<{
+  async ingestWebhook(
+    payload: unknown,
+    securityContext?: IngestWebhookSecurityContext,
+  ): Promise<{
     received: true;
     events: NormalizedInboundEventWithDedup[];
     eventCount: number;
@@ -116,6 +125,8 @@ export class WhatsAppWebhookService {
     ignoredCount: number;
     errorCount: number;
   }> {
+    this.assertWebhookSignature(payload, securityContext);
+
     if (!isRecord(payload) || payload.object !== 'whatsapp_business_account') {
       this.logger.warn(
         'Inbound webhook ignored due to invalid payload shape (object mismatch).',
@@ -299,5 +310,77 @@ export class WhatsAppWebhookService {
     current.count += 1;
     this.inboundCounter.set(key, current);
     return true;
+  }
+
+  private assertWebhookSignature(
+    payload: unknown,
+    securityContext?: IngestWebhookSecurityContext,
+  ): void {
+    if (!this.appConfigService.whatsappWebhookSignatureRequired) {
+      return;
+    }
+
+    const appSecret = this.appConfigService.whatsappAppSecret;
+    if (!appSecret) {
+      throw new MissingWhatsAppConfigException(
+        'WHATSAPP_APP_SECRET is required when webhook signature check is enabled.',
+      );
+    }
+
+    const providedSignature = this.parseSignatureHeader(
+      securityContext?.signatureHeader,
+    );
+    if (!providedSignature) {
+      throw new InvalidWebhookChallengeException(
+        'Missing or invalid x-hub-signature-256 header.',
+      );
+    }
+
+    const bodyBuffer =
+      securityContext?.rawBody ?? this.toRawBodyBuffer(payload);
+    const expectedSignature = createHmac('sha256', appSecret)
+      .update(bodyBuffer)
+      .digest('hex');
+
+    if (!this.constantTimeHexCompare(expectedSignature, providedSignature)) {
+      throw new InvalidWebhookChallengeException(
+        'Webhook signature validation failed.',
+      );
+    }
+  }
+
+  private parseSignatureHeader(value: string | undefined): string | null {
+    if (!value) {
+      return null;
+    }
+
+    const [algorithm, signature] = value.split('=');
+    if (algorithm !== 'sha256' || !signature) {
+      return null;
+    }
+
+    if (!/^[a-f0-9]{64}$/i.test(signature)) {
+      return null;
+    }
+
+    return signature.toLowerCase();
+  }
+
+  private constantTimeHexCompare(
+    expectedHex: string,
+    receivedHex: string,
+  ): boolean {
+    const expected = Buffer.from(expectedHex, 'hex');
+    const received = Buffer.from(receivedHex, 'hex');
+
+    if (expected.length !== received.length) {
+      return false;
+    }
+
+    return timingSafeEqual(expected, received);
+  }
+
+  private toRawBodyBuffer(payload: unknown): Buffer {
+    return Buffer.from(JSON.stringify(payload));
   }
 }
