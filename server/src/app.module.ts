@@ -17,6 +17,9 @@ import { HandoffModule } from './handoff/handoff.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SalesEngineModule } from './sales-engine/sales-engine.module';
 import { TrainingSettingsModule } from './training-settings/training-settings.module';
+import { UsersModule } from './users/users.module';
+import { SessionsModule } from './sessions/sessions.module';
+import { TemplatesModule } from './templates/templates.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 
 @Module({
@@ -35,6 +38,9 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     NotificationsModule,
     AnalyticsModule,
     TrainingSettingsModule,
+    UsersModule,
+    SessionsModule,
+    TemplatesModule,
   ],
   controllers: [AppController],
   providers: [

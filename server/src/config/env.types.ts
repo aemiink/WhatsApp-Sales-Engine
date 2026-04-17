@@ -69,4 +69,5 @@ export interface EnvironmentVariables {
   EMAIL_PROVIDER_TIMEOUT_MS?: number;
   EMAIL_FROM_ADDRESS?: string;
   APP_BASE_URL?: string;
+  SENTRY_DSN?: string;
 }

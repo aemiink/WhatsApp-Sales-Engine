@@ -293,6 +293,22 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model MessageTemplate {
+  id          String   @id @default(uuid())
+  workspaceId String
+  name        String
+  content     String
+  isActive    Boolean  @default(true)
+  usageCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId, isActive])
+  @@map("message_templates")
+}
+
 model QueueFailureLog {
   id            String   @id @default(uuid())
   queueName     String

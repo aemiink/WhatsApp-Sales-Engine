@@ -4,6 +4,20 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { WorkspaceMember, User } from '@prisma/client';
+
+type MemberWithUser = WorkspaceMember & { user: User };
+
+export interface ConversationWorkspaceContext {
+  id: string;
+  workspaceId: string;
+}
+
+export interface HandoffSessionWorkspaceContext {
+  id: string;
+  conversationId: string;
+  workspaceId: string;
+}
 
 export interface ConversationWorkspaceContext {
   id: string;
@@ -72,5 +86,13 @@ export class WorkspaceAccessService {
       conversationId: session.conversationId,
       workspaceId: session.conversation.workspaceId,
     };
+  }
+
+  async getWorkspaceMembers(workspaceId: string): Promise<MemberWithUser[]> {
+    return this.prisma.workspaceMember.findMany({
+      where: { workspaceId },
+      include: { user: true },
+      orderBy: { createdAt: 'asc' },
+    }) as Promise<MemberWithUser[]>;
   }
 }

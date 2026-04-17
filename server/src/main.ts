@@ -5,8 +5,6 @@ import type { NextFunction, Request, Response } from 'express';
 import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 import { AppConfigService } from './config/app-config.service';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import * as Sentry from '@sentry/node';
 
 function buildCorsOriginChecker(allowedOrigins: string[]) {
   const allowAny = allowedOrigins.includes('*');
@@ -160,23 +158,6 @@ async function bootstrap(): Promise<void> {
       },
     }),
   );
-
-  if (config.nodeEnv !== 'development') {
-    Sentry.init({
-      dsn: config.sentryDsn,
-      environment: config.nodeEnv,
-      release: `whatsapp-sales-engine@${config.appVersion}`,
-    });
-  }
-
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('WhatsApp Sales Engine API')
-    .setDescription('Backend API documentation for WhatsApp Sales Engine')
-    .setVersion(config.appVersion)
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('/api/docs', app, document);
 
   app.enableShutdownHooks();
   await app.listen(config.port);
