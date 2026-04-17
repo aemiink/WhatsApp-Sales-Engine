@@ -7,10 +7,11 @@ import {
 import { AnalyticsService } from '../../analytics/analytics.service';
 import { ConversationsService } from '../../conversations/conversations.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
-import { SalesEngineService } from '../../sales-engine/sales-engine.service';
+import { FinalSalesDecision } from '../../sales-engine/types/final-sales-decision.types';
 import { EndHandoffExecutionDto } from '../dto/end-handoff.dto';
 import { ManualSendMessageDto } from '../dto/manual-send-message.dto';
 import { StartHandoffExecutionDto } from '../dto/start-handoff.dto';
+import { AiDecisionQueueService } from './ai-decision-queue.service';
 import { HandoffExecutorService } from './handoff-executor.service';
 import { ReplyExecutorService } from './reply-executor.service';
 import type { ReplyExecutionResult } from './reply-executor.service';
@@ -20,7 +21,7 @@ export class ExecutionService {
   private readonly logger = new Logger(ExecutionService.name);
 
   constructor(
-    private readonly salesEngineService: SalesEngineService,
+    private readonly aiDecisionQueueService: AiDecisionQueueService,
     private readonly conversationsService: ConversationsService,
     private readonly analyticsService: AnalyticsService,
     private readonly replyExecutorService: ReplyExecutorService,
@@ -32,11 +33,11 @@ export class ExecutionService {
     conversationId: string,
     messageId: string,
   ): Promise<{
-    decision: Awaited<ReturnType<SalesEngineService['generateDecision']>>;
+    decision: FinalSalesDecision;
     handoff: unknown;
     reply: ReplyExecutionResult;
   }> {
-    const decision = await this.salesEngineService.generateDecision({
+    const decision = await this.aiDecisionQueueService.generateDecision({
       conversationId,
       messageId,
     });

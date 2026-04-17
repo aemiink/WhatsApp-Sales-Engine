@@ -11,8 +11,8 @@ import { ConversationsService } from '../../conversations/conversations.service'
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
 import { FinalSalesDecision } from '../../sales-engine/types/final-sales-decision.types';
-import { WhatsAppMessageSenderService } from '../../whatsapp/services/whatsapp-message-sender.service';
 import { AiModeService } from './ai-mode.service';
+import { OutboundMessageQueueService } from './outbound-message-queue.service';
 
 export interface ReplyExecutionResult {
   sent: boolean;
@@ -29,7 +29,7 @@ export class ReplyExecutorService {
     private readonly conversationsService: ConversationsService,
     private readonly prisma: PrismaService,
     private readonly aiModeService: AiModeService,
-    private readonly whatsappMessageSenderService: WhatsAppMessageSenderService,
+    private readonly outboundMessageQueueService: OutboundMessageQueueService,
     private readonly analyticsService: AnalyticsService,
     private readonly notificationsService: NotificationsService,
     private readonly workspaceAccessService: WorkspaceAccessService,
@@ -95,8 +95,9 @@ export class ReplyExecutorService {
     }
 
     try {
-      await this.whatsappMessageSenderService.sendTextMessage({
+      await this.outboundMessageQueueService.sendText({
         workspaceId: conversation.workspaceId,
+        conversationId,
         to: conversation.phoneNumber,
         text,
       });
@@ -170,8 +171,9 @@ export class ReplyExecutorService {
       throw new NotFoundException('Conversation not found');
     }
 
-    await this.whatsappMessageSenderService.sendTextMessage({
+    await this.outboundMessageQueueService.sendText({
       workspaceId: conversation.workspaceId,
+      conversationId,
       to: conversation.phoneNumber,
       text: trimmedText,
     });

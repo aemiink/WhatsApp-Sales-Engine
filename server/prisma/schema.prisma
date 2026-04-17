@@ -274,3 +274,22 @@ model Notification {
   @@index([workspaceId, userId, isRead, createdAt])
   @@map("notifications")
 }
+
+model QueueFailureLog {
+  id            String   @id @default(uuid())
+  queueName     String
+  jobId         String?
+  workspaceId   String?
+  conversationId String?
+  payloadJson   Json?
+  errorMessage  String
+  errorStack    String?
+  attempt       Int
+  maxAttempts   Int
+  failedAt      DateTime @default(now())
+
+  @@index([queueName, failedAt])
+  @@index([workspaceId, failedAt])
+  @@index([conversationId, failedAt])
+  @@map("queue_failure_logs")
+}

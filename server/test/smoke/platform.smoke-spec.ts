@@ -82,6 +82,7 @@ describe('Platform smoke checks', () => {
     expect(queueService.getStats()).toEqual({
       inFlight: 0,
       completed: 0,
+      failed: 0,
     });
   });
 });

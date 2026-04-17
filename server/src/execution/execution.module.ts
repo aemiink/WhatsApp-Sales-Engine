@@ -7,9 +7,12 @@ import { SalesEngineModule } from '../sales-engine/sales-engine.module';
 import { WhatsappModule } from '../whatsapp/whatsapp.module';
 import { ExecutionController } from './execution.controller';
 import { AiModeService } from './services/ai-mode.service';
+import { AiDecisionQueueService } from './services/ai-decision-queue.service';
 import { ExecutionService } from './services/execution.service';
 import { HandoffExecutorService } from './services/handoff-executor.service';
 import { InboundEventQueueService } from './services/inbound-event-queue.service';
+import { OutboundMessageQueueService } from './services/outbound-message-queue.service';
+import { QueueFailureLogService } from './services/queue-failure-log.service';
 import { ReplyExecutorService } from './services/reply-executor.service';
 
 @Module({
@@ -28,6 +31,9 @@ import { ReplyExecutorService } from './services/reply-executor.service';
     HandoffExecutorService,
     AiModeService,
     InboundEventQueueService,
+    AiDecisionQueueService,
+    OutboundMessageQueueService,
+    QueueFailureLogService,
   ],
   exports: [
     ExecutionService,
@@ -35,6 +41,8 @@ import { ReplyExecutorService } from './services/reply-executor.service';
     HandoffExecutorService,
     AiModeService,
     InboundEventQueueService,
+    AiDecisionQueueService,
+    OutboundMessageQueueService,
   ],
 })
 export class ExecutionModule {}

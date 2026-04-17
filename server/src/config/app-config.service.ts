@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AiDefaultProvider, EnvironmentVariables } from './env.types';
+import {
+  AiDefaultProvider,
+  AppRuntimeRole,
+  EnvironmentVariables,
+  QueueDriver,
+} from './env.types';
 
 @Injectable()
 export class AppConfigService {
@@ -31,6 +36,10 @@ export class AppConfigService {
     }
 
     return '0.0.1';
+  }
+
+  get appRole(): AppRuntimeRole {
+    return this.configService.getOrThrow<AppRuntimeRole>('APP_ROLE');
   }
 
   get databaseUrl(): string {
@@ -184,6 +193,47 @@ export class AppConfigService {
     );
   }
 
+  get queueDriver(): QueueDriver {
+    return this.configService.getOrThrow<QueueDriver>('QUEUE_DRIVER');
+  }
+
+  get redisUrl(): string | undefined {
+    const value = this.configService.get<string>('REDIS_URL');
+    return value && value.length > 0 ? value : undefined;
+  }
+
+  get queuePrefix(): string {
+    return this.configService.getOrThrow<string>('QUEUE_PREFIX');
+  }
+
+  get queueInlineWorkers(): boolean {
+    return this.getBoolean('QUEUE_INLINE_WORKERS', true);
+  }
+
+  get queueInboundConcurrency(): number {
+    return this.configService.getOrThrow<number>('QUEUE_INBOUND_CONCURRENCY');
+  }
+
+  get queueAiDecisionConcurrency(): number {
+    return this.configService.getOrThrow<number>(
+      'QUEUE_AI_DECISION_CONCURRENCY',
+    );
+  }
+
+  get queueOutboundConcurrency(): number {
+    return this.configService.getOrThrow<number>('QUEUE_OUTBOUND_CONCURRENCY');
+  }
+
+  get queueJobRemoveOnComplete(): number {
+    return this.configService.getOrThrow<number>(
+      'QUEUE_JOB_REMOVE_ON_COMPLETE',
+    );
+  }
+
+  get queueJobRemoveOnFail(): number {
+    return this.configService.getOrThrow<number>('QUEUE_JOB_REMOVE_ON_FAIL');
+  }
+
   get whatsappAccessToken(): string {
     return this.configService.getOrThrow<string>('WHATSAPP_ACCESS_TOKEN');
   }
@@ -235,6 +285,30 @@ export class AppConfigService {
   get websiteFetchMaxResponseBytes(): number {
     return this.configService.getOrThrow<number>(
       'WEBSITE_FETCH_MAX_RESPONSE_BYTES',
+    );
+  }
+
+  get instagramAccessToken(): string | undefined {
+    const value = this.configService.get<string>('INSTAGRAM_ACCESS_TOKEN');
+    return value && value.length > 0 ? value : undefined;
+  }
+
+  get instagramUserId(): string | undefined {
+    const value = this.configService.get<string>('INSTAGRAM_USER_ID');
+    return value && value.length > 0 ? value : undefined;
+  }
+
+  get instagramGraphApiVersion(): string {
+    return this.configService.getOrThrow<string>('INSTAGRAM_GRAPH_API_VERSION');
+  }
+
+  get instagramMediaLimit(): number {
+    return this.configService.getOrThrow<number>('INSTAGRAM_MEDIA_LIMIT');
+  }
+
+  get instagramProviderTimeoutMs(): number {
+    return this.configService.getOrThrow<number>(
+      'INSTAGRAM_PROVIDER_TIMEOUT_MS',
     );
   }
 

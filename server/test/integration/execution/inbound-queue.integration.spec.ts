@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppConfigService } from '../../../src/config/app-config.service';
+import { QueueFailureLogService } from '../../../src/execution/services/queue-failure-log.service';
 import { ExecutionService } from '../../../src/execution/services/execution.service';
 import { InboundEventQueueService } from '../../../src/execution/services/inbound-event-queue.service';
 import { waitForQueueToDrain } from '../../helpers/queue-test.helper';
@@ -45,6 +46,12 @@ describe('InboundEventQueueService (integration)', () => {
         {
           provide: AppConfigService,
           useValue: appConfigServiceMock,
+        },
+        {
+          provide: QueueFailureLogService,
+          useValue: {
+            recordFailure: jest.fn().mockResolvedValue(undefined),
+          },
         },
       ],
     }).compile();
@@ -97,6 +104,12 @@ describe('InboundEventQueueService (integration)', () => {
         {
           provide: AppConfigService,
           useValue: appConfigServiceMock,
+        },
+        {
+          provide: QueueFailureLogService,
+          useValue: {
+            recordFailure: jest.fn().mockResolvedValue(undefined),
+          },
         },
       ],
     }).compile();

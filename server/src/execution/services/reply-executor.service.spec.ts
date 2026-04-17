@@ -31,7 +31,7 @@ describe('ReplyExecutorService', () => {
         getMode: jest.fn().mockResolvedValue('paused'),
       } as never,
       {
-        sendTextMessage: jest.fn(),
+        sendText: jest.fn(),
       } as never,
       {
         safeTrack: jest.fn().mockResolvedValue(undefined),
@@ -56,7 +56,7 @@ describe('ReplyExecutorService', () => {
   });
 
   it('sends reply when mode is auto_reply and decision allows', async () => {
-    const sendMock = jest.fn().mockResolvedValue({});
+    const sendMock = jest.fn().mockResolvedValue(undefined);
 
     const service = new ReplyExecutorService(
       {
@@ -75,7 +75,7 @@ describe('ReplyExecutorService', () => {
         getMode: jest.fn().mockResolvedValue('auto_reply'),
       } as never,
       {
-        sendTextMessage: sendMock,
+        sendText: sendMock,
       } as never,
       {
         safeTrack: jest.fn().mockResolvedValue(undefined),
@@ -95,6 +95,7 @@ describe('ReplyExecutorService', () => {
 
     expect(sendMock).toHaveBeenCalledWith({
       workspaceId: 'ws-1',
+      conversationId: 'conv-1',
       to: '905551112233',
       text: 'Merhaba, fiyat bilgisi paylaşabilirim.',
     });
@@ -120,7 +121,7 @@ describe('ReplyExecutorService', () => {
         getMode: jest.fn().mockResolvedValue('auto_reply'),
       } as never,
       {
-        sendTextMessage: jest.fn(),
+        sendText: jest.fn(),
       } as never,
       {
         safeTrack: jest.fn().mockResolvedValue(undefined),
@@ -157,7 +158,7 @@ describe('ReplyExecutorService', () => {
         getMode: jest.fn(),
       } as never,
       {
-        sendTextMessage: sendMock,
+        sendText: sendMock,
       } as never,
       {
         safeTrack: jest.fn(),

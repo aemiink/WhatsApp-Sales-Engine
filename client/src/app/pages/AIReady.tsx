@@ -1,15 +1,110 @@
-import { CheckCircle2, ArrowRight, BarChart3, MessageSquare } from 'lucide-react';
+import {
+  ArrowRight,
+  BarChart3,
+  CheckCircle2,
+  MessageSquare,
+  RefreshCw,
+} from 'lucide-react';
 import { useNavigate } from 'react-router';
+import { ErrorState, LoadingState } from '../components/shared/PageStates';
+import { fetchBrandContext, fetchTrainingSettings } from '../lib/api/services';
+import { useApiQuery } from '../lib/api/useApiQuery';
 
-const completedItems = [
-  'Website analyzed',
-  'Instagram analyzed',
-  'Sales style ready',
-  'FAQ / rules loaded',
-];
+interface CompletionItem {
+  id: string;
+  label: string;
+  completed: boolean;
+}
 
 export function AIReady() {
   const navigate = useNavigate();
+  const brandQuery = useApiQuery(fetchBrandContext, []);
+  const trainingQuery = useApiQuery(fetchTrainingSettings, []);
+
+  const isLoading = brandQuery.isLoading || trainingQuery.isLoading;
+  const error = brandQuery.error ?? trainingQuery.error;
+
+  const sourceStatus = brandQuery.data?.sourceStatus;
+
+  const completionItems: CompletionItem[] = [
+    {
+      id: 'website',
+      label: 'Website analyzed',
+      completed: Boolean(sourceStatus?.website?.available),
+    },
+    {
+      id: 'instagram',
+      label: 'Instagram analyzed',
+      completed: Boolean(sourceStatus?.instagram?.available),
+    },
+    {
+      id: 'sales-style',
+      label: 'Sales style ready',
+      completed:
+        typeof brandQuery.data?.brandContext?.salesStyle === 'string' ||
+        typeof brandQuery.data?.resolvedContext?.toneProfile === 'object',
+    },
+    {
+      id: 'training',
+      label: 'FAQ / rules loaded',
+      completed:
+        (trainingQuery.data?.trainingSettings.faqJson.length ?? 0) > 0 ||
+        (trainingQuery.data?.trainingSettings.handoffRulesJson.length ?? 0) > 0 ||
+        Object.keys(trainingQuery.data?.trainingSettings.rulesJson ?? {}).length > 0,
+    },
+  ];
+
+  const resolvedTone =
+    typeof brandQuery.data?.resolvedContext?.toneProfile === 'object' &&
+    brandQuery.data.resolvedContext.toneProfile !== null &&
+    'primaryTone' in brandQuery.data.resolvedContext.toneProfile &&
+    typeof brandQuery.data.resolvedContext.toneProfile.primaryTone === 'string'
+      ? brandQuery.data.resolvedContext.toneProfile.primaryTone
+      : 'Belirlenmedi';
+
+  const resolvedBrandName =
+    typeof brandQuery.data?.resolvedContext?.brandName === 'string'
+      ? brandQuery.data.resolvedContext.brandName
+      : 'Marka adi belirlenmedi';
+
+  const completedCount = completionItems.filter((item) => item.completed).length;
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center overflow-auto bg-gradient-to-b from-background via-[#090911] to-[#0f0f18] p-6">
+        <div className="w-full max-w-3xl">
+          <LoadingState
+            title="AI readiness verisi yukleniyor"
+            description="Brand context ve training son durumu kontrol ediliyor."
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-full items-center justify-center overflow-auto bg-gradient-to-b from-background via-[#090911] to-[#0f0f18] p-6">
+        <div className="w-full max-w-3xl">
+          <ErrorState
+            title="AI readiness verisi alinamadi"
+            description={error}
+            action={
+              <button
+                onClick={() => {
+                  void Promise.all([brandQuery.refetch(), trainingQuery.refetch()]);
+                }}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-black"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Tekrar dene
+              </button>
+            }
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full items-center justify-center overflow-auto bg-gradient-to-b from-background via-[#090911] to-[#0f0f18] p-6">
@@ -20,17 +115,28 @@ export function AIReady() {
           </div>
           <h1 className="text-3xl font-bold md:text-4xl">AI sistemin hazir</h1>
           <p className="mt-2 text-sm text-muted-foreground md:text-base">
-            Onboarding tamamlandi. AI artik canli konusmalarda marka tonunla
-            cevap uretebilir.
+            Onboarding tamamlandi. AI artik canli konusmalarda marka tonunla cevap uretebilir.
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Tamamlanan adim: {completedCount}/{completionItems.length}
           </p>
         </div>
 
         <section className="mb-6 grid gap-3 sm:grid-cols-2">
-          {completedItems.map((item) => (
-            <article key={item} className="rounded-lg border border-border bg-secondary/40 p-3">
+          {completionItems.map((item) => (
+            <article
+              key={item.id}
+              className={`rounded-lg border p-3 ${
+                item.completed
+                  ? 'border-border bg-secondary/40'
+                  : 'border-red-500/35 bg-red-500/10'
+              }`}
+            >
               <p className="inline-flex items-center gap-2 text-sm font-semibold">
-                <CheckCircle2 className="h-4 w-4 text-primary" />
-                {item}
+                <CheckCircle2
+                  className={`h-4 w-4 ${item.completed ? 'text-primary' : 'text-red-300'}`}
+                />
+                {item.label}
               </p>
             </article>
           ))}
@@ -39,8 +145,7 @@ export function AIReady() {
         <section className="mb-6 rounded-lg border border-primary/35 bg-primary/10 p-4">
           <p className="text-sm font-semibold text-primary">Neler ogrenildi?</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Marka dili, urun konumlandirmasi, itiraz kaliplari ve handoff
-            kurallari AI karar motoruna eklendi.
+            {resolvedBrandName} icin temel ton: {resolvedTone}. Urun ve kural bilgileri training settings uzerinden context'e eklendi.
           </p>
         </section>
 

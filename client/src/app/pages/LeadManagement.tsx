@@ -1,95 +1,26 @@
-import { useMemo, useState } from 'react';
-import { MessageSquareText, NotebookPen, Search, UserRoundPlus } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  MessageSquareText,
+  NotebookPen,
+  RefreshCw,
+  Search,
+  UserRoundPlus,
+} from 'lucide-react';
+import { useNavigate } from 'react-router';
 import { PageHeader } from '../components/shared/PageHeader';
-import { EmptyState } from '../components/shared/PageStates';
+import { EmptyState, ErrorState, LoadingState } from '../components/shared/PageStates';
 import { StatusBadge } from '../components/shared/StatusBadge';
+import {
+  fetchConversationDetail,
+  fetchConversations,
+  type AiMode,
+  type ConversationDetail,
+  type ConversationListItem,
+  type LeadStage,
+} from '../lib/api/services';
+import { useApiQuery } from '../lib/api/useApiQuery';
 
-type LeadStage = 'new' | 'qualified' | 'hot' | 'lost' | 'support';
-
-interface LeadItem {
-  id: string;
-  name: string;
-  phone: string;
-  stage: LeadStage;
-  handoffActive: boolean;
-  owner: string;
-  score: number;
-  nextAction: string;
-  note: string;
-  updatedAt: string;
-}
-
-const leads: LeadItem[] = [
-  {
-    id: 'l-1',
-    name: 'Ahmet Yilmaz',
-    phone: '+90 532 123 45 67',
-    stage: 'hot',
-    handoffActive: false,
-    owner: 'Ceren',
-    score: 94,
-    nextAction: 'Demo randevusu netlestir',
-    note: 'Fiyat itirazina ragmen kapanisa yakin.',
-    updatedAt: '3 dk',
-  },
-  {
-    id: 'l-2',
-    name: 'Merve Acar',
-    phone: '+90 535 111 22 33',
-    stage: 'support',
-    handoffActive: true,
-    owner: 'Baris',
-    score: 68,
-    nextAction: 'Teknik sorulari temsilci yanitlasin',
-    note: 'API entegrasyonu detayini bekliyor.',
-    updatedAt: '11 dk',
-  },
-  {
-    id: 'l-3',
-    name: 'Zeynep Demir',
-    phone: '+90 543 987 65 43',
-    stage: 'qualified',
-    handoffActive: false,
-    owner: 'Nisa',
-    score: 80,
-    nextAction: 'Yonetici onayi takibi',
-    note: 'Bircok ozellikte mutabik, fiyat donusunu bekliyor.',
-    updatedAt: '24 dk',
-  },
-  {
-    id: 'l-4',
-    name: 'Emre Cakmak',
-    phone: '+90 544 612 77 10',
-    stage: 'new',
-    handoffActive: false,
-    owner: 'Atanmadi',
-    score: 52,
-    nextAction: 'Ilk ihtiyac analizi',
-    note: 'Sadece temel bilgi aldi.',
-    updatedAt: '42 dk',
-  },
-  {
-    id: 'l-5',
-    name: 'Derya Kaan',
-    phone: '+90 534 901 66 88',
-    stage: 'lost',
-    handoffActive: false,
-    owner: 'Ceren',
-    score: 34,
-    nextAction: '30 gun sonra re-engage',
-    note: 'Rakip urune gecis yapti.',
-    updatedAt: '1 gun',
-  },
-];
-
-type FilterKey =
-  | 'all'
-  | 'new'
-  | 'qualified'
-  | 'hot'
-  | 'lost'
-  | 'support'
-  | 'handoff-active';
+type FilterKey = 'all' | 'new' | 'qualified' | 'hot' | 'lost' | 'support' | 'paused';
 
 const filterOptions: Array<{ key: FilterKey; label: string }> = [
   { key: 'all', label: 'Tum leads' },
@@ -98,39 +29,202 @@ const filterOptions: Array<{ key: FilterKey; label: string }> = [
   { key: 'hot', label: 'hot' },
   { key: 'lost', label: 'lost' },
   { key: 'support', label: 'support' },
-  { key: 'handoff-active', label: 'handoff active' },
+  { key: 'paused', label: 'ai paused' },
 ];
 
 function stageToBadge(stage: LeadStage) {
-  if (stage === 'new') return <StatusBadge tone="new" label="new" />;
-  if (stage === 'qualified')
+  if (stage === 'new') {
+    return <StatusBadge tone="new" label="new" />;
+  }
+  if (stage === 'qualified') {
     return <StatusBadge tone="qualified" label="qualified" />;
-  if (stage === 'hot') return <StatusBadge tone="hot" label="hot" />;
-  if (stage === 'support') return <StatusBadge tone="support" label="support" />;
+  }
+  if (stage === 'hot') {
+    return <StatusBadge tone="hot" label="hot" />;
+  }
+  if (stage === 'support') {
+    return <StatusBadge tone="support" label="support" />;
+  }
   return <StatusBadge tone="lost" label="lost" />;
 }
 
+function modeBadge(mode: AiMode) {
+  if (mode === 'paused') {
+    return <StatusBadge tone="paused" label="paused" />;
+  }
+  if (mode === 'suggest_only') {
+    return <StatusBadge tone="handoff" label="suggest" />;
+  }
+  return <StatusBadge tone="active" label="auto" />;
+}
+
+function formatRelativeTime(value: string | null): string {
+  if (!value) {
+    return 'unknown';
+  }
+
+  const date = new Date(value);
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.max(1, Math.floor(diffMs / (1000 * 60)));
+
+  if (minutes < 60) {
+    return `${minutes} dk`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours} saat`;
+  }
+
+  const days = Math.floor(hours / 24);
+  return `${days} gun`;
+}
+
+function scoreFromStage(stage: LeadStage, mode: AiMode): number {
+  const baseMap: Record<LeadStage, number> = {
+    new: 45,
+    qualified: 72,
+    hot: 92,
+    support: 58,
+    lost: 20,
+  };
+
+  const modeBoost = mode === 'auto_reply' ? 4 : mode === 'paused' ? -6 : 0;
+  return Math.max(0, Math.min(100, baseMap[stage] + modeBoost));
+}
+
+function nextActionFromLead(lead: ConversationListItem): string {
+  if (lead.leadStage === 'hot') {
+    return 'Demo randevusu netlestir';
+  }
+  if (lead.leadStage === 'qualified') {
+    return 'Fiyat/teklif takibi';
+  }
+  if (lead.leadStage === 'support') {
+    return 'Temsilciye teknik devir';
+  }
+  if (lead.leadStage === 'lost') {
+    return 'Re-engage akisi planla';
+  }
+  return 'Ihtiyac analizi baslat';
+}
+
+function latestMessage(detail: ConversationDetail | null): string {
+  if (!detail || detail.messages.length === 0) {
+    return 'Mesaj gecmisi bulunmuyor.';
+  }
+
+  const last = detail.messages[detail.messages.length - 1];
+  return last.content ?? 'Icerik yok.';
+}
+
 export function LeadManagement() {
+  const navigate = useNavigate();
+  const conversationsQuery = useApiQuery(fetchConversations, []);
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
   const [query, setQuery] = useState('');
-  const [selectedLeadId, setSelectedLeadId] = useState<string>(leads[0]?.id ?? '');
+  const [selectedLeadId, setSelectedLeadId] = useState('');
+  const [detailsById, setDetailsById] = useState<Record<string, ConversationDetail>>({});
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  const leads = conversationsQuery.data ?? [];
+
+  useEffect(() => {
+    if (leads.length === 0) {
+      return;
+    }
+
+    if (!selectedLeadId || !leads.some((lead) => lead.id === selectedLeadId)) {
+      setSelectedLeadId(leads[0].id);
+    }
+  }, [leads, selectedLeadId]);
+
+  useEffect(() => {
+    const loadDetail = async () => {
+      if (!selectedLeadId || detailsById[selectedLeadId]) {
+        return;
+      }
+
+      setDetailLoading(true);
+      setDetailError(null);
+      try {
+        const detail = await fetchConversationDetail(selectedLeadId);
+        setDetailsById((prev) => ({
+          ...prev,
+          [selectedLeadId]: detail,
+        }));
+      } catch (error: unknown) {
+        setDetailError(error instanceof Error ? error.message : 'Lead detayi alinamadi.');
+      } finally {
+        setDetailLoading(false);
+      }
+    };
+
+    void loadDetail();
+  }, [selectedLeadId, detailsById]);
 
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
+      const queryValue = query.trim();
       const queryMatch =
-        lead.name.toLowerCase().includes(query.toLowerCase()) ||
-        lead.phone.includes(query);
+        queryValue.length === 0 ||
+        lead.phoneNumber.toLowerCase().includes(queryValue.toLowerCase()) ||
+        lead.id.toLowerCase().includes(queryValue.toLowerCase());
+
       if (!queryMatch) {
         return false;
       }
 
-      if (activeFilter === 'all') return true;
-      if (activeFilter === 'handoff-active') return lead.handoffActive;
-      return lead.stage === activeFilter;
+      if (activeFilter === 'all') {
+        return true;
+      }
+      if (activeFilter === 'paused') {
+        return lead.aiMode === 'paused';
+      }
+      return lead.leadStage === activeFilter;
     });
-  }, [activeFilter, query]);
+  }, [leads, activeFilter, query]);
 
-  const selectedLead = filteredLeads.find((lead) => lead.id === selectedLeadId);
+  const selectedLead = filteredLeads.find((lead) => lead.id === selectedLeadId) ?? null;
+  const selectedDetail = selectedLeadId ? detailsById[selectedLeadId] ?? null : null;
+
+  if (conversationsQuery.isLoading) {
+    return (
+      <div className="h-full overflow-auto bg-background">
+        <div className="mx-auto max-w-[1600px] p-6 md:p-8">
+          <LoadingState
+            title="Lead listesi yukleniyor"
+            description="Conversation verileri backend'den aliniyor."
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (conversationsQuery.error) {
+    return (
+      <div className="h-full overflow-auto bg-background">
+        <div className="mx-auto max-w-[1600px] p-6 md:p-8">
+          <ErrorState
+            title="Lead listesi alinamadi"
+            description={conversationsQuery.error}
+            action={
+              <button
+                onClick={() => {
+                  void conversationsQuery.refetch();
+                }}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-black"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Tekrar dene
+              </button>
+            }
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full overflow-auto bg-background">
@@ -146,6 +240,15 @@ export function LeadManagement() {
               label: 'Yeni lead ekle',
               variant: 'primary',
               icon: <UserRoundPlus className="h-4 w-4" />,
+            },
+            {
+              id: 'refresh',
+              label: 'Yenile',
+              variant: 'secondary',
+              icon: <RefreshCw className="h-4 w-4" />,
+              onClick: () => {
+                void conversationsQuery.refetch();
+              },
             },
           ]}
         />
@@ -173,7 +276,7 @@ export function LeadManagement() {
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Isim veya telefon ara"
+                placeholder="Telefon veya id ara"
                 className="w-full rounded-lg border border-border bg-input py-2 pl-9 pr-3 text-sm outline-none focus:border-primary"
               />
             </div>
@@ -182,7 +285,7 @@ export function LeadManagement() {
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
           <section className="rounded-xl border border-border bg-card/60 p-4">
-            <div className="mb-3 grid grid-cols-[1.6fr_1.1fr_0.8fr_1fr_1fr] gap-2 px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="mb-3 grid grid-cols-[1.5fr_1fr_0.8fr_1fr_1fr] gap-2 px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <span>Lead</span>
               <span>Stage</span>
               <span>Score</span>
@@ -201,35 +304,38 @@ export function LeadManagement() {
                   <article
                     key={lead.id}
                     onClick={() => setSelectedLeadId(lead.id)}
-                    className={`grid cursor-pointer grid-cols-[1.6fr_1.1fr_0.8fr_1fr_1fr] gap-2 rounded-lg border p-3 transition-all ${
+                    className={`grid cursor-pointer grid-cols-[1.5fr_1fr_0.8fr_1fr_1fr] gap-2 rounded-lg border p-3 transition-all ${
                       selectedLeadId === lead.id
                         ? 'border-primary/45 bg-primary/10'
                         : 'border-border bg-secondary/35 hover:bg-secondary/55'
                     }`}
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{lead.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">{lead.phone}</p>
+                      <p className="truncate text-sm font-semibold">{lead.phoneNumber}</p>
+                      <p className="truncate text-xs text-muted-foreground">{lead.id}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Guncelleme: {lead.updatedAt}
+                        Guncelleme: {formatRelativeTime(lead.lastMessageAt)}
                       </p>
                     </div>
                     <div className="flex flex-col gap-1">
-                      {stageToBadge(lead.stage)}
-                      {lead.handoffActive ? (
-                        <StatusBadge tone="handoff" label="handoff active" />
-                      ) : null}
+                      {stageToBadge(lead.leadStage)}
+                      {modeBadge(lead.aiMode)}
                     </div>
                     <div className="flex items-center">
-                      <p className="text-sm font-semibold">{lead.score}</p>
+                      <p className="text-sm font-semibold">
+                        {scoreFromStage(lead.leadStage, lead.aiMode)}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground">{lead.nextAction}</p>
+                    <p className="text-xs text-muted-foreground">{nextActionFromLead(lead)}</p>
                     <div className="flex flex-wrap gap-1">
-                      <button className="rounded border border-border bg-secondary/45 px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground">
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          navigate('/chat');
+                        }}
+                        className="rounded border border-border bg-secondary/45 px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                      >
                         Sohbeti ac
-                      </button>
-                      <button className="rounded border border-border bg-secondary/45 px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground">
-                        Stage guncelle
                       </button>
                     </div>
                   </article>
@@ -248,38 +354,45 @@ export function LeadManagement() {
             ) : (
               <div className="space-y-4">
                 <div className="rounded-lg border border-border bg-secondary/35 p-3">
-                  <p className="text-sm font-semibold">{selectedLead.name}</p>
-                  <p className="text-xs text-muted-foreground">{selectedLead.phone}</p>
+                  <p className="text-sm font-semibold">{selectedLead.phoneNumber}</p>
+                  <p className="text-xs text-muted-foreground">{selectedLead.id}</p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    {stageToBadge(selectedLead.stage)}
-                    {selectedLead.handoffActive ? (
-                      <StatusBadge tone="handoff" label="handoff active" />
-                    ) : null}
+                    {stageToBadge(selectedLead.leadStage)}
+                    {modeBadge(selectedLead.aiMode)}
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-border bg-secondary/35 p-3 text-sm">
-                  <p className="mb-1 text-xs text-muted-foreground">Operasyon notu</p>
-                  <p>{selectedLead.note}</p>
-                </div>
+                {detailLoading ? (
+                  <LoadingState
+                    title="Lead detayi yukleniyor"
+                    description="Secili konusmanin son mesajlari aliniyor."
+                  />
+                ) : detailError ? (
+                  <ErrorState
+                    title="Lead detayi alinamadi"
+                    description={detailError}
+                  />
+                ) : (
+                  <div className="rounded-lg border border-border bg-secondary/35 p-3 text-sm">
+                    <p className="mb-1 text-xs text-muted-foreground">Operasyon notu</p>
+                    <p>{latestMessage(selectedDetail)}</p>
+                  </div>
+                )}
 
                 <div className="rounded-lg border border-border bg-secondary/35 p-3 text-sm">
                   <p className="mb-1 text-xs text-muted-foreground">Atanan temsilci</p>
-                  <p>{selectedLead.owner}</p>
+                  <p>{selectedLead.aiMode === 'paused' ? 'Human agent' : 'AI operator'}</p>
                 </div>
 
                 <div className="space-y-2">
-                  <button className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm font-bold text-black hover:bg-primary/90">
+                  <button
+                    onClick={() => navigate('/chat')}
+                    className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm font-bold text-black hover:bg-primary/90"
+                  >
                     Sohbeti ac
                   </button>
                   <button className="w-full rounded-lg border border-border bg-secondary/40 px-3 py-2.5 text-sm font-semibold hover:bg-secondary/60">
-                    Stage guncelle
-                  </button>
-                  <button className="w-full rounded-lg border border-border bg-secondary/40 px-3 py-2.5 text-sm font-semibold hover:bg-secondary/60">
-                    Not ekle
-                  </button>
-                  <button className="w-full rounded-lg border border-border bg-secondary/40 px-3 py-2.5 text-sm font-semibold hover:bg-secondary/60">
-                    Temsilciye ata
+                    Aktivite gecmisi
                   </button>
                 </div>
 
@@ -289,8 +402,7 @@ export function LeadManagement() {
                     AI onerisi
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Bu lead icin en iyi sonraki adim: ROI odakli mini demo +
-                    yonetici onayi icin pdf ozet gonderimi.
+                    Sonraki adim: {nextActionFromLead(selectedLead)}
                   </p>
                 </div>
 

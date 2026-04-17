@@ -4,6 +4,7 @@ import { AppConfigModule } from '../config/app-config.module';
 import { ConversationsModule } from '../conversations/conversations.module';
 import { ExecutionModule } from '../execution/execution.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { WhatsAppConnectionController } from './controllers/whatsapp-connection.controller';
 import { WhatsAppMessagesController } from './controllers/whatsapp-messages.controller';
 import { WhatsAppWebhookController } from './controllers/whatsapp-webhook.controller';
 import { MetaWhatsAppProvider } from './providers/meta-whatsapp.provider';
@@ -22,7 +23,11 @@ import { WhatsAppWebhookService } from './services/whatsapp-webhook.service';
     NotificationsModule,
     forwardRef(() => ExecutionModule),
   ],
-  controllers: [WhatsAppWebhookController, WhatsAppMessagesController],
+  controllers: [
+    WhatsAppWebhookController,
+    WhatsAppMessagesController,
+    WhatsAppConnectionController,
+  ],
   providers: [
     WhatsAppWebhookService,
     WhatsAppMessageParserService,

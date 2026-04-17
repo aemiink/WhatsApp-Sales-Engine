@@ -42,9 +42,7 @@ export class HandoffExecutorService {
     }
 
     if (workspaceId && conversation.workspaceId !== workspaceId) {
-      throw new ForbiddenException(
-        'Conversation does not belong to workspace',
-      );
+      throw new ForbiddenException('Conversation does not belong to workspace');
     }
 
     await this.aiModeService.setMode(conversationId, 'paused');
@@ -131,9 +129,7 @@ export class HandoffExecutorService {
     }
 
     if (workspaceId && conversation.workspaceId !== workspaceId) {
-      throw new ForbiddenException(
-        'Conversation does not belong to workspace',
-      );
+      throw new ForbiddenException('Conversation does not belong to workspace');
     }
 
     const active = await this.prisma.handoffSession.findFirst({

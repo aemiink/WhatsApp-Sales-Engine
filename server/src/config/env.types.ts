@@ -1,11 +1,14 @@
 export const AI_DEFAULT_PROVIDERS = ['gemini', 'openai'] as const;
 
 export type AiDefaultProvider = (typeof AI_DEFAULT_PROVIDERS)[number];
+export type QueueDriver = 'memory' | 'bullmq';
+export type AppRuntimeRole = 'api' | 'worker';
 
 export interface EnvironmentVariables {
   NODE_ENV: 'development' | 'test' | 'production';
   PORT: number;
   APP_VERSION?: string;
+  APP_ROLE?: AppRuntimeRole;
   DATABASE_URL: string;
   DIRECT_URL: string;
   JWT_ACCESS_SECRET: string;
@@ -37,6 +40,15 @@ export interface EnvironmentVariables {
   INBOUND_RATE_LIMIT_WINDOW_MS?: number;
   EXECUTION_QUEUE_MAX_RETRIES?: number;
   EXECUTION_QUEUE_RETRY_BASE_DELAY_MS?: number;
+  QUEUE_DRIVER?: QueueDriver;
+  REDIS_URL?: string;
+  QUEUE_PREFIX?: string;
+  QUEUE_INLINE_WORKERS?: boolean;
+  QUEUE_INBOUND_CONCURRENCY?: number;
+  QUEUE_AI_DECISION_CONCURRENCY?: number;
+  QUEUE_OUTBOUND_CONCURRENCY?: number;
+  QUEUE_JOB_REMOVE_ON_COMPLETE?: number;
+  QUEUE_JOB_REMOVE_ON_FAIL?: number;
   WHATSAPP_ACCESS_TOKEN: string;
   WHATSAPP_PHONE_NUMBER_ID: string;
   WHATSAPP_BUSINESS_ACCOUNT_ID?: string;
@@ -48,6 +60,11 @@ export interface EnvironmentVariables {
   WEBSITE_FETCH_TIMEOUT_MS?: number;
   WEBSITE_FETCH_MAX_PAGES?: number;
   WEBSITE_FETCH_MAX_RESPONSE_BYTES?: number;
+  INSTAGRAM_ACCESS_TOKEN?: string;
+  INSTAGRAM_USER_ID?: string;
+  INSTAGRAM_GRAPH_API_VERSION?: string;
+  INSTAGRAM_MEDIA_LIMIT?: number;
+  INSTAGRAM_PROVIDER_TIMEOUT_MS?: number;
   RESEND_API_KEY?: string;
   EMAIL_PROVIDER_TIMEOUT_MS?: number;
   EMAIL_FROM_ADDRESS?: string;

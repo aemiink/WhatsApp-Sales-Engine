@@ -6,16 +6,16 @@ Bu doküman, fazlara bölünmüş düzeltme planını ve her faz tamamlandığı
 
 1. Sprint 1 — Backend security (workspace isolation) ✅
 2. Sprint 2 — Client auth ✅
-3. Sprint 3 — Client API layer
-4. Sprint 4 — AI setup entegrasyonu
-5. Sprint 5 — Live chat entegrasyonu
-6. Sprint 6 — Dashboard/analytics/leads
-7. Sprint 7 — Connection ekranı
-8. Sprint 8 — Notifications
-9. Sprint 9 — Queue
-10. Sprint 10 — Instagram ingestion
-11. Sprint 11 — Test stabilization
-12. Sprint 12 — Final UX + production prep
+3. Sprint 3 — Client API layer ✅
+4. Sprint 4 — AI setup entegrasyonu ✅
+5. Sprint 5 — Live chat entegrasyonu ✅
+6. Sprint 6 — Dashboard/analytics/leads ✅
+7. Sprint 7 — Connection ekranı ✅
+8. Sprint 8 — Notifications ✅
+9. Sprint 9 — Queue ✅
+10. Sprint 10 — Instagram ingestion ✅
+11. Sprint 11 — Test stabilization ✅
+12. Sprint 12 — Final UX + production prep ✅
 
 ---
 
@@ -152,7 +152,11 @@ Bu doküman, fazlara bölünmüş düzeltme planını ve her faz tamamlandığı
 - Alanlar: conversations, brand context, training settings, analytics, notifications, WhatsApp connection, AI test/decision
 
 ### Durum
-Not started.
+✅ TAMAMLANDI
+
+- `client/src/app/lib/api/services.ts` ile tipli ortak API servis katmanı eklendi.
+- `client/src/app/lib/api/useApiQuery.ts` ile ortak loading/error/refetch pattern'i standartlaştırıldı.
+- Sayfa bazlı dağınık fetch/mock state kullanımı yerine merkezi servis/hook yapısı devreye alındı.
 
 ---
 
@@ -162,7 +166,10 @@ Not started.
 - Website analizi, Instagram analizi, training settings, resolved brand context → hepsi gerçek API
 
 ### Durum
-Not started.
+✅ TAMAMLANDI
+
+- `AISetup` sayfası `POST /brand-context/website/analyze`, `POST /brand-context/instagram/analyze`, `POST /brand-context`, `PATCH /training-settings` endpoint'lerine bağlandı.
+- `AIReady` ekranı artık backend'den gelen `sourceStatus`, `resolvedContext`, `trainingSettings` verisiyle çalışıyor.
 
 ---
 
@@ -172,7 +179,10 @@ Not started.
 - Conversation list, thread, manual send, AI mode, handoff → gerçek API'lere bağlı
 
 ### Durum
-Not started.
+✅ TAMAMLANDI
+
+- `LiveChat` sayfası `GET /conversations`, `GET /conversations/:id`, `POST /conversations/:id/send`, `PATCH /conversations/:id/ai-mode`, `POST /conversations/:id/handoff`, `POST /conversations/:id/handoff/end` endpoint'lerine bağlandı.
+- Chat thread ve aksiyon butonları artık gerçek conversation/message verisini kullanıyor.
 
 ---
 
@@ -182,7 +192,10 @@ Not started.
 - Overview / funnel / AI analytics + lead query + filtreler
 
 ### Durum
-Not started.
+✅ TAMAMLANDI
+
+- `Dashboard`, `Analytics`, `LeadManagement` ekranları gerçek analytics/conversation endpoint'lerinden besleniyor.
+- Funnel, AI performance, conversation metrikleri mock veri yerine backend response ile gösteriliyor.
 
 ---
 
@@ -192,7 +205,10 @@ Not started.
 - Active connection görüntüleme, reconnect / remove / test, health state
 
 ### Durum
-Not started.
+✅ TAMAMLANDI
+
+- Yeni backend endpoint'ler eklendi: `GET /whatsapp/connection`, `POST /whatsapp/connection/test`, `POST /whatsapp/connection/reconnect`, `DELETE /whatsapp/connection`.
+- `Connection` ekranı aktif durum, health mesajı, test/reconnect/remove aksiyonlarıyla gerçek API'ye bağlandı.
 
 ---
 
@@ -202,7 +218,11 @@ Not started.
 - Real notifications, unread/read state, SSE auth, polling fallback
 
 ### Durum
-Not started.
+✅ TAMAMLANDI
+
+- Notifications hook'u merkezi API servis katmanına taşındı.
+- `GET /notifications`, `GET /notifications/unread-count`, `PATCH /notifications/:id/read`, `PATCH /notifications/read-all` endpoint akışları aktif.
+- Realtime için auth header ile stream okuma ve polling fallback birlikte çalışacak şekilde düzenlendi.
 
 ---
 
@@ -212,7 +232,14 @@ Not started.
 - Memory queue → BullMQ + Redis, retry / backoff / DLQ, worker ayrımı
 
 ### Durum
-Not started.
+✅ TAMAMLANDI
+
+- Queue altyapısı `inbound-execution`, `ai-decision`, `outbound-message` için BullMQ uyumlu hale getirildi.
+- `QUEUE_DRIVER=memory|bullmq` ile sürücü seçimi eklendi; memory fallback korundu.
+- Retry/backoff politikası tüm queue’larda `EXECUTION_QUEUE_*` ayarlarıyla standartlaştırıldı.
+- Hata kayıtları için `queue_failure_logs` tablosu + `QueueFailureLogService` eklendi.
+- Worker ayrımı için `APP_ROLE=worker` bootstrap modu ve `npm run start:worker` komutu eklendi.
+- Production validation sıkılaştırıldı: `QUEUE_DRIVER=bullmq` + `REDIS_URL` zorunlu.
 
 ---
 
@@ -222,7 +249,13 @@ Not started.
 - Bağımsız Instagram source ingestion, gerçek profile/caption çekme, snapshot
 
 ### Durum
-Not started.
+✅ TAMAMLANDI
+
+- `InstagramDataFetcherService`, WhatsApp metadata hack’inden tamamen çıkarıldı.
+- Resmi Graph API üzerinden profil + media caption verisi çekilecek akış eklendi.
+- `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_USER_ID`, `INSTAGRAM_GRAPH_API_VERSION`, `INSTAGRAM_MEDIA_LIMIT`, `INSTAGRAM_PROVIDER_TIMEOUT_MS` konfigürasyonu aktive edildi.
+- Eksik credential durumunda kontrollü warning + fallback davranışı korunarak analiz akışı kırılmadan devam edecek şekilde düzenlendi.
+- Yeni unit testler eklendi: credential yok, başarılı fetch, API error senaryoları.
 
 ---
 
@@ -232,7 +265,16 @@ Not started.
 - Unit / integration / e2e / smoke gerçekten koşsun, provider mock'ları stabil
 
 ### Durum
-Not started.
+✅ TAMAMLANDI
+
+- Test env helper’ları yeni queue/instagram env parametreleriyle güncellendi.
+- Queue servis refactor’u sonrası integration/smoke testleri yeni `getStats`/DI yapısına göre güncellendi.
+- Doğrulama:
+  - `npm run test:unit` ✅
+  - `npm run test:integration` ✅
+  - `npm run test:e2e` ✅
+  - `npm run test:smoke` ✅
+  - `npm run test:all` ✅
 
 ---
 
@@ -242,4 +284,13 @@ Not started.
 - Mock kalıntıları temizle, loading/error/empty polish, email test, env validation, health/version
 
 ### Durum
-Not started.
+✅ TAMAMLANDI
+
+- Client tarafında page-help akışı (one-time + manuel tekrar açma) ve gerçek notification lifecycle zaten aktif hale getirilen yapıyla finalize edildi.
+- Dashboard üzerindeki fake/misleading “demo” microcopy temizlendi.
+- `.env.example` production hazırlığı için queue/worker/instagram değişkenleriyle güncellendi.
+- Env validation production kuralları queue ve Instagram ingestion için sıkılaştırıldı.
+- `GET /health` ve `GET /version` uçları smoke kapsamında doğrulandı.
+- Son doğrulama:
+  - `server`: `npm run lint`, `npm run build`, `npm run test:all` ✅
+  - `client`: `npm run build` ✅

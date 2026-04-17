@@ -31,6 +31,7 @@ export const envValidationSchema = Joi.object({
     .default('development'),
   PORT: Joi.number().integer().positive().default(3000),
   APP_VERSION: Joi.string().trim().optional().allow(''),
+  APP_ROLE: Joi.string().valid('api', 'worker').default('api'),
   DATABASE_URL: Joi.string().trim().required(),
   DIRECT_URL: Joi.string().trim().required(),
   JWT_ACCESS_SECRET: Joi.string().trim().min(16).required(),
@@ -87,6 +88,19 @@ export const envValidationSchema = Joi.object({
     .integer()
     .min(100)
     .default(500),
+  QUEUE_DRIVER: Joi.string().valid('memory', 'bullmq').default('memory'),
+  REDIS_URL: Joi.string().trim().uri().optional().allow(''),
+  QUEUE_PREFIX: Joi.string().trim().default('wse'),
+  QUEUE_INLINE_WORKERS: Joi.boolean().default(true),
+  QUEUE_INBOUND_CONCURRENCY: Joi.number().integer().min(1).max(100).default(5),
+  QUEUE_AI_DECISION_CONCURRENCY: Joi.number()
+    .integer()
+    .min(1)
+    .max(100)
+    .default(3),
+  QUEUE_OUTBOUND_CONCURRENCY: Joi.number().integer().min(1).max(100).default(5),
+  QUEUE_JOB_REMOVE_ON_COMPLETE: Joi.number().integer().min(0).default(500),
+  QUEUE_JOB_REMOVE_ON_FAIL: Joi.number().integer().min(0).default(1000),
   WHATSAPP_ACCESS_TOKEN: Joi.string().trim().required(),
   WHATSAPP_PHONE_NUMBER_ID: Joi.string().trim().required(),
   WHATSAPP_BUSINESS_ACCOUNT_ID: Joi.string().trim().optional().allow(''),
@@ -105,6 +119,17 @@ export const envValidationSchema = Joi.object({
     .min(50_000)
     .max(2_000_000)
     .default(500_000),
+  INSTAGRAM_ACCESS_TOKEN: Joi.string().trim().optional().allow(''),
+  INSTAGRAM_USER_ID: Joi.string().trim().optional().allow(''),
+  INSTAGRAM_GRAPH_API_VERSION: Joi.string()
+    .trim()
+    .pattern(/^v\d+\.\d+$/)
+    .default('v21.0'),
+  INSTAGRAM_MEDIA_LIMIT: Joi.number().integer().min(1).max(50).default(20),
+  INSTAGRAM_PROVIDER_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .default(12000),
   RESEND_API_KEY: Joi.string().trim().optional().allow(''),
   EMAIL_PROVIDER_TIMEOUT_MS: Joi.number().integer().min(1000).default(10000),
   EMAIL_FROM_ADDRESS: Joi.string().trim().email().optional().allow(''),
@@ -118,9 +143,21 @@ export const envValidationSchema = Joi.object({
     const signatureRequired = Boolean(
       value.WHATSAPP_WEBHOOK_SIGNATURE_REQUIRED,
     );
+    const queueDriver =
+      typeof value.QUEUE_DRIVER === 'string' ? value.QUEUE_DRIVER : 'memory';
+    const redisUrl =
+      typeof value.REDIS_URL === 'string' ? value.REDIS_URL.trim() : '';
     const webhookAppSecret =
       typeof value.WHATSAPP_APP_SECRET === 'string'
         ? value.WHATSAPP_APP_SECRET.trim()
+        : '';
+    const instagramAccessToken =
+      typeof value.INSTAGRAM_ACCESS_TOKEN === 'string'
+        ? value.INSTAGRAM_ACCESS_TOKEN.trim()
+        : '';
+    const instagramUserId =
+      typeof value.INSTAGRAM_USER_ID === 'string'
+        ? value.INSTAGRAM_USER_ID.trim()
         : '';
 
     if (authBypassInTest && nodeEnv !== 'test') {
@@ -141,6 +178,12 @@ export const envValidationSchema = Joi.object({
       return helpers.error('any.custom', {
         message:
           'CORS_ALLOWED_ORIGINS cannot include * when CORS_ALLOW_CREDENTIALS is true.',
+      });
+    }
+
+    if (queueDriver === 'bullmq' && redisUrl.length === 0) {
+      return helpers.error('any.custom', {
+        message: 'REDIS_URL is required when QUEUE_DRIVER is bullmq.',
       });
     }
 
@@ -175,11 +218,31 @@ export const envValidationSchema = Joi.object({
         });
       }
 
+      if (queueDriver !== 'bullmq') {
+        return helpers.error('any.custom', {
+          message:
+            'QUEUE_DRIVER must be bullmq in production to avoid memory queue data loss.',
+        });
+      }
+
+      if (redisUrl.length === 0) {
+        return helpers.error('any.custom', {
+          message: 'REDIS_URL must be configured in production.',
+        });
+      }
+
       const appBaseUrl =
         typeof value.APP_BASE_URL === 'string' ? value.APP_BASE_URL : '';
       if (appBaseUrl.length > 0 && !appBaseUrl.startsWith('https://')) {
         return helpers.error('any.custom', {
           message: 'APP_BASE_URL must use https:// in production.',
+        });
+      }
+
+      if (instagramAccessToken.length === 0 || instagramUserId.length === 0) {
+        return helpers.error('any.custom', {
+          message:
+            'INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_USER_ID must be configured in production for real Instagram ingestion.',
         });
       }
     }

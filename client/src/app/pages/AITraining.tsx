@@ -1,40 +1,259 @@
-import { Brain, Sparkles, Save, Upload, FileText, MessageSquare, AlertCircle } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  AlertCircle,
+  Brain,
+  FileText,
+  MessageSquare,
+  RefreshCw,
+  Save,
+  Sparkles,
+} from 'lucide-react';
+import { ErrorState, LoadingState } from '../components/shared/PageStates';
+import {
+  fetchBrandContext,
+  fetchTrainingSettings,
+  saveBrandProfile,
+  updateTrainingSettings,
+} from '../lib/api/services';
+import { useApiQuery } from '../lib/api/useApiQuery';
 
 const toneOptions = [
-  { value: 'friendly', label: 'Friendly & Casual', description: 'Warm and approachable tone' },
-  { value: 'premium', label: 'Premium & Professional', description: 'Sophisticated and polished' },
-  { value: 'aggressive', label: 'Aggressive & Direct', description: 'Bold and persuasive' },
+  {
+    value: 'friendly',
+    label: 'Friendly & Casual',
+    description: 'Warm and approachable tone',
+  },
+  {
+    value: 'premium',
+    label: 'Premium & Professional',
+    description: 'Sophisticated and polished',
+  },
+  {
+    value: 'aggressive',
+    label: 'Aggressive & Direct',
+    description: 'Bold and persuasive',
+  },
 ];
 
 const salesStyleOptions = [
-  { value: 'soft', label: 'Soft Sell', description: 'Consultative approach' },
-  { value: 'balanced', label: 'Balanced', description: 'Mix of education and persuasion' },
-  { value: 'aggressive', label: 'Hard Sell', description: 'Direct and action-oriented' },
+  {
+    value: 'soft',
+    label: 'Soft Sell',
+    description: 'Consultative approach',
+  },
+  {
+    value: 'balanced',
+    label: 'Balanced',
+    description: 'Mix of education and persuasion',
+  },
+  {
+    value: 'aggressive',
+    label: 'Hard Sell',
+    description: 'Direct and action-oriented',
+  },
 ];
 
-const sampleFAQs = [
-  { question: 'Fiyatlarınız nedir?', answer: 'Paketlerimiz ₺2,999 ile ₺9,999 arasında değişmektedir...' },
-  { question: 'Teslimat süresi ne kadar?', answer: '2-3 iş günü içinde teslim edilir...' },
-  { question: 'Deneme sürümü var mı?', answer: '14 gün ücretsiz deneme sunuyoruz...' },
-];
+function asTextLines(value: string): string[] {
+  return value
+    .split('\n')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
 
 export function AITraining() {
+  const brandQuery = useApiQuery(fetchBrandContext, []);
+  const trainingQuery = useApiQuery(fetchTrainingSettings, []);
+
+  const [tone, setTone] = useState('premium');
+  const [salesStyle, setSalesStyle] = useState('balanced');
+  const [productDescription, setProductDescription] = useState('');
+  const [faqText, setFaqText] = useState('');
+  const [objectionRules, setObjectionRules] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const hydratedRef = useRef(false);
+
+  useEffect(() => {
+    if (hydratedRef.current) {
+      return;
+    }
+
+    if (!brandQuery.data || !trainingQuery.data) {
+      return;
+    }
+
+    if (typeof brandQuery.data.brandContext?.tone === 'string') {
+      const normalized = brandQuery.data.brandContext.tone.toLowerCase();
+      if (normalized.includes('friendly')) {
+        setTone('friendly');
+      } else if (normalized.includes('aggressive')) {
+        setTone('aggressive');
+      } else {
+        setTone('premium');
+      }
+    }
+
+    if (typeof brandQuery.data.brandContext?.salesStyle === 'string') {
+      const style = brandQuery.data.brandContext.salesStyle;
+      if (style === 'soft' || style === 'balanced' || style === 'aggressive') {
+        setSalesStyle(style);
+      }
+    }
+
+    const products = trainingQuery.data.trainingSettings.productsJson
+      .map((item) => {
+        if (typeof item.name === 'string') {
+          return item.name;
+        }
+        return JSON.stringify(item);
+      })
+      .join('\n');
+    setProductDescription(products);
+
+    const faq = trainingQuery.data.trainingSettings.faqJson
+      .map((item) => {
+        const question = typeof item.question === 'string' ? item.question : '';
+        const answer = typeof item.answer === 'string' ? item.answer : '';
+        if (!question || !answer) {
+          return JSON.stringify(item);
+        }
+        return `S: ${question}\nC: ${answer}`;
+      })
+      .join('\n\n');
+    setFaqText(faq);
+
+    const rules = trainingQuery.data.trainingSettings.handoffRulesJson.join('\n');
+    setObjectionRules(rules);
+
+    hydratedRef.current = true;
+  }, [brandQuery.data, trainingQuery.data]);
+
+  const isLoading = brandQuery.isLoading || trainingQuery.isLoading;
+  const error = brandQuery.error ?? trainingQuery.error;
+
+  const onSave = async () => {
+    setIsSaving(true);
+    setSaveMessage(null);
+    setSaveError(null);
+
+    try {
+      const faqBlocks = faqText
+        .split('\n\n')
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0)
+        .map((entry) => {
+          const lines = entry.split('\n').map((line) => line.trim());
+          const questionLine = lines.find((line) => line.toLowerCase().startsWith('s:'));
+          const answerLine = lines.find((line) => line.toLowerCase().startsWith('c:'));
+
+          if (!questionLine || !answerLine) {
+            return null;
+          }
+
+          return {
+            question: questionLine.replace(/^s:\s*/i, ''),
+            answer: answerLine.replace(/^c:\s*/i, ''),
+          };
+        })
+        .filter((item): item is { question: string; answer: string } => item !== null);
+
+      const rules = asTextLines(objectionRules);
+
+      await Promise.all([
+        saveBrandProfile({
+          tone,
+          salesStyle,
+        }),
+        updateTrainingSettings({
+          productsJson: asTextLines(productDescription).map((name) => ({ name })),
+          faqJson: faqBlocks,
+          rulesJson: {
+            objectionRules: rules,
+          },
+          handoffRulesJson: rules,
+        }),
+      ]);
+
+      await Promise.all([brandQuery.refetch(), trainingQuery.refetch()]);
+      setSaveMessage('Training ayarlari kaydedildi.');
+    } catch (errorValue: unknown) {
+      setSaveError(
+        errorValue instanceof Error
+          ? errorValue.message
+          : 'Training kaydi basarisiz oldu.',
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="h-full overflow-auto bg-background">
+        <div className="mx-auto max-w-5xl p-8">
+          <LoadingState
+            title="AI training yukleniyor"
+            description="Brand context ve training settings backend'den aliniyor."
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-full overflow-auto bg-background">
+        <div className="mx-auto max-w-5xl p-8">
+          <ErrorState
+            title="AI training verisi alinamadi"
+            description={error}
+            action={
+              <button
+                onClick={() => {
+                  void Promise.all([brandQuery.refetch(), trainingQuery.refetch()]);
+                }}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-black"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Tekrar dene
+              </button>
+            }
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full overflow-auto bg-background">
       <div className="mx-auto max-w-5xl p-8">
-        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold tracking-tight mb-2 bg-gradient-to-r from-primary via-[#00d9ff] to-primary bg-clip-text text-transparent">
-            AI Satış Eğitimi
+          <h1 className="mb-2 bg-gradient-to-r from-primary via-[#00d9ff] to-primary bg-clip-text text-4xl font-bold tracking-tight text-transparent">
+            AI Satis Egitimi
           </h1>
-          <p className="text-muted-foreground">Configure your AI sales assistant's personality and knowledge base</p>
+          <p className="text-muted-foreground">
+            Configure your AI sales assistant's personality and knowledge base
+          </p>
         </div>
 
+        {(saveMessage || saveError) && (
+          <div
+            className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+              saveError
+                ? 'border-red-500/35 bg-red-500/10 text-red-200'
+                : 'border-primary/35 bg-primary/10 text-primary'
+            }`}
+          >
+            {saveError ?? saveMessage}
+          </div>
+        )}
+
         <div className="space-y-6">
-          {/* Brand Tone */}
-          <div className="rounded-xl border border-border bg-card/60 backdrop-blur-xl p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+          <div className="rounded-xl border border-border bg-card/60 p-6 backdrop-blur-xl">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="rounded-lg border border-primary/20 bg-primary/10 p-3">
                 <MessageSquare className="h-5 w-5 text-primary" />
               </div>
               <div>
@@ -43,21 +262,19 @@ export function AITraining() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               {toneOptions.map((option) => (
-                <label
-                  key={option.value}
-                  className="relative cursor-pointer group"
-                >
+                <label key={option.value} className="group relative cursor-pointer">
                   <input
                     type="radio"
                     name="tone"
                     value={option.value}
-                    defaultChecked={option.value === 'premium'}
+                    checked={tone === option.value}
+                    onChange={(event) => setTone(event.target.value)}
                     className="peer sr-only"
                   />
-                  <div className="rounded-lg border-2 border-border bg-secondary/30 p-4 transition-all peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:shadow-lg peer-checked:shadow-primary/20 hover:bg-secondary/50">
-                    <h3 className="font-semibold mb-1">{option.label}</h3>
+                  <div className="rounded-lg border-2 border-border bg-secondary/30 p-4 transition-all hover:bg-secondary/50 peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:shadow-lg peer-checked:shadow-primary/20">
+                    <h3 className="mb-1 font-semibold">{option.label}</h3>
                     <p className="text-sm text-muted-foreground">{option.description}</p>
                   </div>
                 </label>
@@ -65,10 +282,9 @@ export function AITraining() {
             </div>
           </div>
 
-          {/* Sales Style */}
-          <div className="rounded-xl border border-border bg-card/60 backdrop-blur-xl p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+          <div className="rounded-xl border border-border bg-card/60 p-6 backdrop-blur-xl">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 p-3">
                 <Sparkles className="h-5 w-5 text-blue-400" />
               </div>
               <div>
@@ -77,21 +293,19 @@ export function AITraining() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               {salesStyleOptions.map((option) => (
-                <label
-                  key={option.value}
-                  className="relative cursor-pointer group"
-                >
+                <label key={option.value} className="group relative cursor-pointer">
                   <input
                     type="radio"
                     name="salesStyle"
                     value={option.value}
-                    defaultChecked={option.value === 'balanced'}
+                    checked={salesStyle === option.value}
+                    onChange={(event) => setSalesStyle(event.target.value)}
                     className="peer sr-only"
                   />
-                  <div className="rounded-lg border-2 border-border bg-secondary/30 p-4 transition-all peer-checked:border-blue-400 peer-checked:bg-blue-500/10 peer-checked:shadow-lg peer-checked:shadow-blue-500/20 hover:bg-secondary/50">
-                    <h3 className="font-semibold mb-1">{option.label}</h3>
+                  <div className="rounded-lg border-2 border-border bg-secondary/30 p-4 transition-all hover:bg-secondary/50 peer-checked:border-blue-400 peer-checked:bg-blue-500/10 peer-checked:shadow-lg peer-checked:shadow-blue-500/20">
+                    <h3 className="mb-1 font-semibold">{option.label}</h3>
                     <p className="text-sm text-muted-foreground">{option.description}</p>
                   </div>
                 </label>
@@ -99,89 +313,54 @@ export function AITraining() {
             </div>
           </div>
 
-          {/* Product Knowledge */}
-          <div className="rounded-xl border border-border bg-card/60 backdrop-blur-xl p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+          <div className="rounded-xl border border-border bg-card/60 p-6 backdrop-blur-xl">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="rounded-lg border border-purple-500/20 bg-purple-500/10 p-3">
                 <Brain className="h-5 w-5 text-purple-400" />
               </div>
               <div>
                 <h2 className="text-xl font-bold">Product Knowledge</h2>
-                <p className="text-sm text-muted-foreground">Teach the AI about your products and services</p>
+                <p className="text-sm text-muted-foreground">
+                  Teach the AI about your products and services
+                </p>
               </div>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-semibold mb-2 block">Product Description</label>
+                <label className="mb-2 block text-sm font-semibold">Products (line by line)</label>
                 <textarea
                   rows={6}
-                  placeholder="Ürünleriniz ve hizmetleriniz hakkında detaylı bilgi girin..."
-                  className="w-full px-4 py-3 rounded-lg bg-input border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none text-sm"
-                  defaultValue="WhatsApp Sales Engine, işletmelerin WhatsApp üzerinden gelen mesajları otomatik olarak yanıtlayan, lead'leri nitelendiren ve satışa yönlendiren yapay zeka destekli bir SaaS platformudur. Platform, müşteri itirazlarını tespit edip yanıtlar, konuşmaları analiz eder ve gerektiğinde insan temsilcilere sorunsuz geçiş yapar."
+                  value={productDescription}
+                  onChange={(event) => setProductDescription(event.target.value)}
+                  className="w-full resize-none rounded-lg border border-border bg-input px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold mb-2 block">Unique Value Propositions</label>
-                <textarea
-                  rows={4}
-                  placeholder="Rakiplerinizden farklı olarak ne sunuyorsunuz?"
-                  className="w-full px-4 py-3 rounded-lg bg-input border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none text-sm"
-                  defaultValue="• 7/24 otomatik yanıt sistemi&#10;• %87 lead nitelendirme başarı oranı&#10;• Anında insan temsilciye geçiş&#10;• Türkçe dil desteği ve yerel pazar bilgisi"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold mb-2 block">Upload Product Documents</label>
-                <button className="w-full px-4 py-8 rounded-lg border-2 border-dashed border-border bg-secondary/30 hover:bg-secondary/50 hover:border-primary/50 transition-all flex flex-col items-center justify-center gap-2 group">
-                  <Upload className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
-                  <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground">
-                    Click to upload or drag and drop
-                  </span>
-                  <span className="text-xs text-muted-foreground">PDF, DOCX, TXT (Max 10MB)</span>
-                </button>
               </div>
             </div>
           </div>
 
-          {/* FAQ Management */}
-          <div className="rounded-xl border border-border bg-card/60 backdrop-blur-xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                  <FileText className="h-5 w-5 text-green-400" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold">FAQ Database</h2>
-                  <p className="text-sm text-muted-foreground">Common questions and answers</p>
-                </div>
+          <div className="rounded-xl border border-border bg-card/60 p-6 backdrop-blur-xl">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="rounded-lg border border-green-500/20 bg-green-500/10 p-3">
+                <FileText className="h-5 w-5 text-green-400" />
               </div>
-              <button className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-black font-semibold text-sm transition-all flex items-center gap-2">
-                <Sparkles className="h-4 w-4" />
-                Add FAQ
-              </button>
+              <div>
+                <h2 className="text-xl font-bold">FAQ Database</h2>
+                <p className="text-sm text-muted-foreground">Common questions and answers</p>
+              </div>
             </div>
 
-            <div className="space-y-3">
-              {sampleFAQs.map((faq, idx) => (
-                <div key={idx} className="rounded-lg border border-border bg-secondary/30 p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-sm mb-2">{faq.question}</h3>
-                      <p className="text-sm text-muted-foreground">{faq.answer}</p>
-                    </div>
-                    <button className="text-sm text-muted-foreground hover:text-foreground">Edit</button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <textarea
+              rows={10}
+              value={faqText}
+              onChange={(event) => setFaqText(event.target.value)}
+              className="w-full rounded-lg border border-border bg-input px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
           </div>
 
-          {/* Objection Handling */}
-          <div className="rounded-xl border border-border bg-card/60 backdrop-blur-xl p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+          <div className="rounded-xl border border-border bg-card/60 p-6 backdrop-blur-xl">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3">
                 <AlertCircle className="h-5 w-5 text-red-400" />
               </div>
               <div>
@@ -190,102 +369,35 @@ export function AITraining() {
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="rounded-lg border border-border bg-secondary/30 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold">Price Objection</h3>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" defaultChecked className="sr-only peer" />
-                    <div className="w-11 h-6 bg-secondary rounded-full peer peer-checked:bg-primary transition-all"></div>
-                    <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-5"></div>
-                  </label>
-                </div>
-                <textarea
-                  rows={3}
-                  className="w-full px-3 py-2 rounded-lg bg-input border border-border text-sm"
-                  defaultValue="Değeri vurgula, ROI hesapla, kampanya öner, rakip karşılaştırması yap. Demo öner ve başarı hikayesi paylaş."
-                />
-              </div>
-
-              <div className="rounded-lg border border-border bg-secondary/30 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold">Time Objection</h3>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" defaultChecked className="sr-only peer" />
-                    <div className="w-11 h-6 bg-secondary rounded-full peer peer-checked:bg-primary transition-all"></div>
-                    <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-5"></div>
-                  </label>
-                </div>
-                <textarea
-                  rows={3}
-                  className="w-full px-3 py-2 rounded-lg bg-input border border-border text-sm"
-                  defaultValue="Aciliyeti vurgula, kaçırılan fırsat maliyetini hesapla, kısa implementasyon süresini belirt."
-                />
-              </div>
-
-              <button className="w-full px-4 py-3 rounded-lg border border-dashed border-border text-sm text-muted-foreground hover:text-foreground hover:border-primary transition-all">
-                + Add New Objection Rule
-              </button>
-            </div>
+            <textarea
+              rows={8}
+              value={objectionRules}
+              onChange={(event) => setObjectionRules(event.target.value)}
+              className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm"
+            />
           </div>
 
-          {/* Advanced Settings */}
-          <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 backdrop-blur-xl p-6">
-            <h2 className="text-xl font-bold mb-6">Advanced Settings</h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="text-sm font-semibold mb-2 block">Response Speed</label>
-                <select className="w-full px-3 py-2 rounded-lg bg-input border border-border focus:border-primary focus:outline-none text-sm">
-                  <option>Instant (0-1s)</option>
-                  <option selected>Natural (1-3s)</option>
-                  <option>Thoughtful (3-5s)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold mb-2 block">Creativity Level</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  defaultValue="70"
-                  className="w-full h-2 rounded-lg appearance-none cursor-pointer"
-                  style={{
-                    background: 'linear-gradient(to right, #A3FF00 0%, #A3FF00 70%, rgba(255,255,255,0.1) 70%, rgba(255,255,255,0.1) 100%)'
-                  }}
-                />
-                <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                  <span>Conservative</span>
-                  <span>Creative</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 flex items-center justify-between p-4 rounded-lg bg-card/60 border border-border">
-              <div>
-                <h3 className="font-semibold text-sm mb-1">Auto-Learning from Successful Conversations</h3>
-                <p className="text-xs text-muted-foreground">AI will learn from high-converting conversations</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" defaultChecked className="sr-only peer" />
-                <div className="w-11 h-6 bg-secondary rounded-full peer peer-checked:bg-primary transition-all"></div>
-                <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-5"></div>
-              </label>
-            </div>
-          </div>
-
-          {/* Save Button */}
-          <div className="sticky bottom-0 z-10 flex items-center justify-between gap-4 p-6 rounded-xl border border-border bg-card/90 backdrop-blur-xl">
+          <div className="sticky bottom-0 z-10 flex items-center justify-between gap-4 rounded-xl border border-border bg-card/90 p-6 backdrop-blur-xl">
             <div className="flex items-center gap-3">
-              <div className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse"></div>
+              <div className="h-2 w-2 animate-pulse rounded-full bg-yellow-400"></div>
               <span className="text-sm text-muted-foreground">Unsaved changes</span>
             </div>
             <div className="flex gap-3">
-              <button className="px-6 py-3 rounded-lg bg-secondary hover:bg-secondary/70 font-semibold transition-all">
-                Reset to Default
+              <button
+                onClick={() => {
+                  void Promise.all([brandQuery.refetch(), trainingQuery.refetch()]);
+                }}
+                className="rounded-lg bg-secondary px-6 py-3 font-semibold transition-all hover:bg-secondary/70"
+              >
+                Reset to Backend
               </button>
-              <button className="px-6 py-3 rounded-lg bg-primary hover:bg-primary/90 text-black font-semibold transition-all flex items-center gap-2 hover:scale-105 shadow-lg shadow-primary/30">
+              <button
+                onClick={() => {
+                  void onSave();
+                }}
+                disabled={isSaving}
+                className="flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-semibold text-black transition-all hover:bg-primary/90 hover:scale-105 disabled:opacity-50"
+              >
                 <Save className="h-4 w-4" />
                 Save Training
               </button>

@@ -7,6 +7,7 @@ export function applyBaseTestEnv(overrides?: TestEnvOverrides): void {
     NODE_ENV: 'test',
     PORT: '3000',
     APP_VERSION: '0.0.1-test',
+    APP_ROLE: 'api',
     DATABASE_URL:
       'postgresql://postgres:postgres@localhost:5432/whatsapp_sales_engine?schema=public',
     DIRECT_URL:
@@ -42,6 +43,14 @@ export function applyBaseTestEnv(overrides?: TestEnvOverrides): void {
     INBOUND_RATE_LIMIT_WINDOW_MS: '60000',
     EXECUTION_QUEUE_MAX_RETRIES: '2',
     EXECUTION_QUEUE_RETRY_BASE_DELAY_MS: '100',
+    QUEUE_DRIVER: 'memory',
+    QUEUE_PREFIX: 'wse-test',
+    QUEUE_INLINE_WORKERS: 'true',
+    QUEUE_INBOUND_CONCURRENCY: '2',
+    QUEUE_AI_DECISION_CONCURRENCY: '2',
+    QUEUE_OUTBOUND_CONCURRENCY: '2',
+    QUEUE_JOB_REMOVE_ON_COMPLETE: '50',
+    QUEUE_JOB_REMOVE_ON_FAIL: '50',
     WHATSAPP_ACCESS_TOKEN: 'test-wa-access-token',
     WHATSAPP_PHONE_NUMBER_ID: '123456789',
     WHATSAPP_WEBHOOK_VERIFY_TOKEN: 'test-webhook-token',
@@ -49,6 +58,9 @@ export function applyBaseTestEnv(overrides?: TestEnvOverrides): void {
     WHATSAPP_WEBHOOK_SIGNATURE_REQUIRED: 'false',
     WHATSAPP_PROVIDER_TIMEOUT_MS: '12000',
     META_GRAPH_API_VERSION: 'v21.0',
+    INSTAGRAM_GRAPH_API_VERSION: 'v21.0',
+    INSTAGRAM_MEDIA_LIMIT: '20',
+    INSTAGRAM_PROVIDER_TIMEOUT_MS: '5000',
     EMAIL_PROVIDER_TIMEOUT_MS: '10000',
   };
 

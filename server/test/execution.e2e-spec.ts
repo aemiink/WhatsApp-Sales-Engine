@@ -9,7 +9,7 @@ import { ExecutionService } from '../src/execution/services/execution.service';
 describe('Execution Endpoints (e2e)', () => {
   let app: INestApplication<App> | undefined;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     process.env.DATABASE_URL ??=
       'postgresql://postgres:postgres@localhost:5432/whatsapp_sales_engine?schema=public';
     process.env.DIRECT_URL ??=
@@ -58,7 +58,7 @@ describe('Execution Endpoints (e2e)', () => {
     await app.init();
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     if (app) {
       await app.close();
     }

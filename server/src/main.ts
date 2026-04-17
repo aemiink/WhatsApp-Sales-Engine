@@ -1,4 +1,4 @@
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { NextFunction, Request, Response } from 'express';
@@ -57,6 +57,19 @@ function createMemoryRateLimiter(options: {
 }
 
 async function bootstrap(): Promise<void> {
+  const runtimeRole = (process.env.APP_ROLE ?? 'api').trim().toLowerCase();
+  if (runtimeRole === 'worker') {
+    const workerApp = await NestFactory.createApplicationContext(AppModule);
+    const config = workerApp.get(AppConfigService);
+    workerApp.enableShutdownHooks();
+
+    Logger.log(
+      `Worker runtime started role=${config.appRole} queueDriver=${config.queueDriver}`,
+      'Bootstrap',
+    );
+    return;
+  }
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
