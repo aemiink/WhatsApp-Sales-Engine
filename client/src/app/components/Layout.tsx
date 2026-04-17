@@ -12,6 +12,7 @@ import {
   User,
   Users,
   Zap,
+  Webhook,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { NotificationBell } from './notifications/NotificationBell';
@@ -84,6 +85,12 @@ const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
         href: '/ai-setup',
         icon: Bot,
         helper: 'Onboarding',
+      },
+      {
+        name: 'Webhook Test',
+        href: '/webhook-test',
+        icon: Webhook,
+        helper: 'Test arayuzu',
       },
     ],
   },

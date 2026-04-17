@@ -11,6 +11,7 @@ import { Connection } from "./pages/Connection";
 import { AISetup } from "./pages/AISetup";
 import { AIReady } from "./pages/AIReady";
 import { AIKnowledge } from "./pages/AIKnowledge";
+import { WebhookTest } from "./pages/WebhookTest";
 import { Login } from "./pages/Login";
 
 export const router = createBrowserRouter([
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
       { path: "leads", Component: LeadManagement },
       { path: "analytics", Component: Analytics },
       { path: "connection", Component: Connection },
+      { path: "webhook-test", Component: WebhookTest },
     ],
   },
 ]);

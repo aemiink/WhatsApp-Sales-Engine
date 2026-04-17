@@ -134,6 +134,7 @@ export const envValidationSchema = Joi.object({
   EMAIL_PROVIDER_TIMEOUT_MS: Joi.number().integer().min(1000).default(10000),
   EMAIL_FROM_ADDRESS: Joi.string().trim().email().optional().allow(''),
   APP_BASE_URL: Joi.string().trim().uri().optional().allow(''),
+  SENTRY_DSN: Joi.string().trim().uri().optional().allow(''),
 })
   .custom((value: Record<string, unknown>, helpers) => {
     const nodeEnv = value.NODE_ENV;

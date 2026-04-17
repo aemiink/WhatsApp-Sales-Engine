@@ -3,6 +3,46 @@ import { tokenStorage, type StoredTokens } from '../auth/tokenStorage';
 export const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:3000';
 
+interface RateLimitEntry {
+  count: number;
+  resetAt: number;
+}
+
+const rateLimits = new Map<string, RateLimitEntry>();
+const DEFAULT_RATE_LIMIT = 100;
+const REQUEST_DEDUP_INTERVAL_MS = 5000;
+const dedupMap = new Map<string, Promise<unknown>>();
+
+function checkRateLimit(key: string, limit: number = DEFAULT_RATE_LIMIT): boolean {
+  const now = Date.now();
+  const entry = rateLimits.get(key);
+
+  if (!entry || now >= entry.resetAt) {
+    rateLimits.set(key, { count: 1, resetAt: now + 60000 });
+    return true;
+  }
+
+  if (entry.count >= limit) {
+    return false;
+  }
+
+  entry.count++;
+  rateLimits.set(key, entry);
+  return true;
+}
+
+export function createRateLimitedFetcher(maxRequestsPerMinute: number = DEFAULT_RATE_LIMIT) {
+  return async function rateLimitedFetch<T>(
+    path: string,
+    options: ApiRequestOptions = {},
+  ): Promise<T> {
+    if (!checkRateLimit(path, maxRequestsPerMinute)) {
+      throw new ApiError(429, 'Rate limit exceeded. Please try again later.', null);
+    }
+    return apiRequest<T>(path, options);
+  };
+}
+
 export class ApiError extends Error {
   public readonly status: number;
   public readonly body: unknown;

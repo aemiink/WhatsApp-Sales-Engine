@@ -321,8 +321,17 @@ export class AppConfigService {
     return this.configService.getOrThrow<number>('EMAIL_PROVIDER_TIMEOUT_MS');
   }
 
-  get emailFromAddress(): string | undefined {
+get emailFromAddress(): string | undefined {
     const value = this.configService.get<string>('EMAIL_FROM_ADDRESS');
+    if (value && value.length > 0) {
+      return value;
+    }
+
+    return undefined;
+  }
+
+  get sentryDsn(): string | undefined {
+    const value = this.configService.get<string>('SENTRY_DSN');
     return value && value.length > 0 ? value : undefined;
   }
 
