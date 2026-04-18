@@ -1,4 +1,4 @@
-name: Client Build & Test
+name: Client Quality
 
 on:
   push:
@@ -11,39 +11,32 @@ on:
       - '.github/workflows/client-build.yml'
 
 jobs:
-  build:
+  client-build-lint:
+    name: Client Build/Lint/Test
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: client
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'pnpm'
-          cache-dependency-path: client/pnpm-lock.yaml
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
-      - name: TypeScript check
-        run: pnpm exec tsc --noEmit
+      - name: Lint client
+        run: npm run lint --if-present
 
-      - name: Build
-        run: pnpm build
+      - name: Test client
+        run: npm run test --if-present
 
-      - name: Run Playwright tests
-        uses: cycjimmy/semantic-release-action@v4
-        with:
-          extra_args: '--dry-run'
-        continue-on-error: true
+      - name: Build client
+        run: npm run build

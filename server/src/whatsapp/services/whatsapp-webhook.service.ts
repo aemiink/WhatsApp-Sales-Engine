@@ -1,4 +1,10 @@
-import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  ForbiddenException,
+  forwardRef,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { AnalyticsService } from '../../analytics/analytics.service';
@@ -127,6 +133,46 @@ export class WhatsAppWebhookService {
   }> {
     this.assertWebhookSignature(payload, securityContext);
 
+    const connection = await this.connectionService.resolveConnection();
+    const workspaceId = connection.workspaceId ?? DEFAULT_WORKSPACE_ID;
+
+    return this.processWebhookPayload(payload, workspaceId);
+  }
+
+  async testWebhookForWorkspace(
+    workspaceId: string,
+    payload: unknown,
+  ): Promise<{
+    received: true;
+    events: NormalizedInboundEventWithDedup[];
+    eventCount: number;
+    processedCount: number;
+    duplicateCount: number;
+    ignoredCount: number;
+    errorCount: number;
+  }> {
+    if (!this.appConfigService.webhookTestToolEnabled) {
+      throw new ForbiddenException(
+        'Webhook test tool is disabled for this environment.',
+      );
+    }
+
+    await this.connectionService.resolveConnection(workspaceId);
+    return this.processWebhookPayload(payload, workspaceId);
+  }
+
+  private async processWebhookPayload(
+    payload: unknown,
+    workspaceId: string,
+  ): Promise<{
+    received: true;
+    events: NormalizedInboundEventWithDedup[];
+    eventCount: number;
+    processedCount: number;
+    duplicateCount: number;
+    ignoredCount: number;
+    errorCount: number;
+  }> {
     if (!isRecord(payload) || payload.object !== 'whatsapp_business_account') {
       this.logger.warn(
         'Inbound webhook ignored due to invalid payload shape (object mismatch).',
@@ -146,10 +192,9 @@ export class WhatsAppWebhookService {
     const events = this.parserService.parseWebhookPayload(payload);
     const normalized = events.map((event) => this.attachDedupKey(event));
 
-    this.logger.log(`Inbound webhook received eventCount=${normalized.length}`);
-
-    const connection = await this.connectionService.resolveConnection();
-    const workspaceId = connection.workspaceId ?? DEFAULT_WORKSPACE_ID;
+    this.logger.log(
+      `Inbound webhook received workspaceId=${workspaceId} eventCount=${normalized.length}`,
+    );
 
     const summary: WebhookProcessSummary = {
       processedCount: 0,

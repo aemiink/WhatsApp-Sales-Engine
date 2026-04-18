@@ -1,4 +1,5 @@
 import { Body, Controller, Param, Patch, Post } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import type { RequestUser } from '../auth/interfaces/request-user.interface';
@@ -10,6 +11,8 @@ import { AiModeService } from './services/ai-mode.service';
 import { ExecutionService } from './services/execution.service';
 import type { ReplyExecutionResult } from './services/reply-executor.service';
 
+@ApiTags('execution')
+@ApiBearerAuth('bearer')
 @Controller('conversations')
 export class ExecutionController {
   constructor(

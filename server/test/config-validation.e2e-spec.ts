@@ -16,6 +16,8 @@ describe('Config Validation (integration)', () => {
       'postgresql://postgres:postgres@localhost:5432/whatsapp_sales_engine?schema=public';
     process.env.JWT_ACCESS_SECRET = 'test-access-secret-value';
     process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-value';
+    process.env.SECRET_ENCRYPTION_KEY =
+      'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=';
     process.env.AI_DEFAULT_PROVIDER = 'gemini';
     process.env.GEMINI_API_KEY = 'test-gemini-key';
 
@@ -45,6 +47,9 @@ describe('Config Validation (integration)', () => {
       'postgresql://postgres:postgres@localhost:5432/whatsapp_sales_engine?schema=public';
     process.env.JWT_ACCESS_SECRET = 'prod-access-secret-value-123';
     process.env.JWT_REFRESH_SECRET = 'prod-refresh-secret-value-456';
+    process.env.SECRET_ENCRYPTION_KEY =
+      'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=';
+    process.env.APP_ENVIRONMENT = 'production';
     process.env.AI_DEFAULT_PROVIDER = 'gemini';
     process.env.GEMINI_API_KEY = 'test-gemini-key';
     process.env.WHATSAPP_ACCESS_TOKEN = 'token';
@@ -52,6 +57,9 @@ describe('Config Validation (integration)', () => {
     process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN = 'verify-token';
     process.env.META_GRAPH_API_VERSION = 'v21.0';
     process.env.WHATSAPP_WEBHOOK_SIGNATURE_REQUIRED = 'false';
+    process.env.WHATSAPP_ENV_FALLBACK_ENABLED = 'false';
+    process.env.INSTAGRAM_ENV_FALLBACK_ENABLED = 'false';
+    process.env.WEBHOOK_TEST_TOOL_ENABLED = 'false';
 
     await expect(
       Test.createTestingModule({
@@ -74,6 +82,8 @@ describe('Config Validation (integration)', () => {
       'postgresql://postgres:postgres@localhost:5432/whatsapp_sales_engine?schema=public';
     process.env.JWT_ACCESS_SECRET = 'dev-access-secret-value-123';
     process.env.JWT_REFRESH_SECRET = 'dev-refresh-secret-value-456';
+    process.env.SECRET_ENCRYPTION_KEY =
+      'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=';
     process.env.AI_DEFAULT_PROVIDER = 'gemini';
     process.env.GEMINI_API_KEY = 'test-gemini-key';
     process.env.WHATSAPP_ACCESS_TOKEN = 'token';

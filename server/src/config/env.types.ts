@@ -3,12 +3,15 @@ export const AI_DEFAULT_PROVIDERS = ['gemini', 'openai'] as const;
 export type AiDefaultProvider = (typeof AI_DEFAULT_PROVIDERS)[number];
 export type QueueDriver = 'memory' | 'bullmq';
 export type AppRuntimeRole = 'api' | 'worker';
+export type AppEnvironment = 'development' | 'test' | 'staging' | 'production';
 
 export interface EnvironmentVariables {
   NODE_ENV: 'development' | 'test' | 'production';
+  APP_ENVIRONMENT?: AppEnvironment;
   PORT: number;
   APP_VERSION?: string;
   APP_ROLE?: AppRuntimeRole;
+  SECRET_ENCRYPTION_KEY: string;
   DATABASE_URL: string;
   DIRECT_URL: string;
   JWT_ACCESS_SECRET: string;
@@ -49,13 +52,14 @@ export interface EnvironmentVariables {
   QUEUE_OUTBOUND_CONCURRENCY?: number;
   QUEUE_JOB_REMOVE_ON_COMPLETE?: number;
   QUEUE_JOB_REMOVE_ON_FAIL?: number;
-  WHATSAPP_ACCESS_TOKEN: string;
-  WHATSAPP_PHONE_NUMBER_ID: string;
+  WHATSAPP_ACCESS_TOKEN?: string;
+  WHATSAPP_PHONE_NUMBER_ID?: string;
   WHATSAPP_BUSINESS_ACCOUNT_ID?: string;
   WHATSAPP_WEBHOOK_VERIFY_TOKEN: string;
   WHATSAPP_APP_SECRET?: string;
   WHATSAPP_WEBHOOK_SIGNATURE_REQUIRED?: boolean;
   WHATSAPP_PROVIDER_TIMEOUT_MS?: number;
+  WHATSAPP_ENV_FALLBACK_ENABLED?: boolean;
   META_GRAPH_API_VERSION: string;
   WEBSITE_FETCH_TIMEOUT_MS?: number;
   WEBSITE_FETCH_MAX_PAGES?: number;
@@ -65,9 +69,14 @@ export interface EnvironmentVariables {
   INSTAGRAM_GRAPH_API_VERSION?: string;
   INSTAGRAM_MEDIA_LIMIT?: number;
   INSTAGRAM_PROVIDER_TIMEOUT_MS?: number;
+  INSTAGRAM_ENV_FALLBACK_ENABLED?: boolean;
   RESEND_API_KEY?: string;
   EMAIL_PROVIDER_TIMEOUT_MS?: number;
   EMAIL_FROM_ADDRESS?: string;
   APP_BASE_URL?: string;
   SENTRY_DSN?: string;
+  SENTRY_ENABLED?: boolean;
+  SWAGGER_ENABLED?: boolean;
+  SWAGGER_PATH?: string;
+  WEBHOOK_TEST_TOOL_ENABLED?: boolean;
 }

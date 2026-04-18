@@ -1,11 +1,30 @@
+# WhatsApp Sales Engine Client
 
-  # WhatsApp Sales Engine Design
+React + Vite dashboard for WhatsApp Sales Engine.
 
-  This is a code bundle for WhatsApp Sales Engine Design. The original project is available at https://www.figma.com/design/Pnc6xdvAYjdRtQxI9euuVF/WhatsApp-Sales-Engine-Design.
+## Development
 
-  ## Running the code
+```bash
+npm ci
+npm run dev
+```
 
-  Run `npm i` to install the dependencies.
+## Build
 
-  Run `npm run dev` to start the development server.
-  
+```bash
+npm run build
+```
+
+## Environment
+
+Create `client/.env` and set:
+
+```bash
+VITE_API_BASE_URL=http://localhost:3000
+```
+
+## Notes
+
+- Client authentication uses backend `/auth/login`, `/auth/refresh`, `/auth/me`.
+- Notifications use authenticated SSE stream with polling fallback.
+- Webhook Test page uses real backend `/webhooks/whatsapp/test` endpoint and is expected to be disabled outside dev/test.

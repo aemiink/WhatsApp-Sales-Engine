@@ -1,5 +1,9 @@
 import { AppConfigService } from '../config/app-config.service';
 import { InstagramDataFetcherService } from './instagram-data-fetcher.service';
+import {
+  InstagramSourceService,
+  ResolvedInstagramSource,
+} from './instagram-source.service';
 
 function mockJsonResponse(
   payload: unknown,
@@ -15,29 +19,66 @@ function mockJsonResponse(
 describe('InstagramDataFetcherService', () => {
   const originalFetch = global.fetch;
 
+  function createSourceServiceMock(
+    overrides?: Partial<ResolvedInstagramSource>,
+  ): Pick<InstagramSourceService, 'resolveSource'> {
+    return {
+      resolveSource: jest.fn().mockResolvedValue({
+        workspaceId: 'ws-1',
+        instagramUserId: '17841400000000000',
+        username: null,
+        accessToken: 'ig-token',
+        source: 'database',
+        warnings: [],
+        ...overrides,
+      }),
+    };
+  }
+
   afterEach(() => {
     global.fetch = originalFetch;
     jest.restoreAllMocks();
   });
 
-  it('returns fallback data when instagram credentials are missing', async () => {
-    const service = new InstagramDataFetcherService({
-      instagramAccessToken: undefined,
-      instagramUserId: undefined,
-      instagramGraphApiVersion: 'v21.0',
-      instagramMediaLimit: 20,
-      instagramProviderTimeoutMs: 5000,
-    } as AppConfigService);
+  it('keeps source warnings in response payload', async () => {
+    const service = new InstagramDataFetcherService(
+      {
+        instagramGraphApiVersion: 'v21.0',
+        instagramMediaLimit: 20,
+        instagramProviderTimeoutMs: 5000,
+      } as AppConfigService,
+      createSourceServiceMock({
+        source: 'environment',
+        warnings: ['Using environment fallback for Instagram source.'],
+      }) as InstagramSourceService,
+    );
+
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce(
+        mockJsonResponse({
+          id: '17841400000000000',
+          username: 'brand_fallback',
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJsonResponse({
+          data: [],
+        }),
+      ) as typeof fetch;
 
     const result = await service.fetchWorkspaceInstagramData('ws-1', '@brand');
 
     expect(result.instagramHandle).toBe('brand');
-    expect(result.profileJson).toEqual({
+    expect(result.profileJson).toMatchObject({
       username: 'brand',
+      instagramUserId: '17841400000000000',
     });
     expect(result.postsJson).toEqual([]);
-    expect(result.warnings[0]).toContain(
-      'INSTAGRAM_ACCESS_TOKEN/INSTAGRAM_USER_ID',
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        'Using environment fallback for Instagram source.',
+      ]),
     );
   });
 
@@ -68,13 +109,14 @@ describe('InstagramDataFetcherService', () => {
         }),
       ) as typeof fetch;
 
-    const service = new InstagramDataFetcherService({
-      instagramAccessToken: 'ig-token',
-      instagramUserId: '17841400000000000',
-      instagramGraphApiVersion: 'v21.0',
-      instagramMediaLimit: 20,
-      instagramProviderTimeoutMs: 5000,
-    } as AppConfigService);
+    const service = new InstagramDataFetcherService(
+      {
+        instagramGraphApiVersion: 'v21.0',
+        instagramMediaLimit: 20,
+        instagramProviderTimeoutMs: 5000,
+      } as AppConfigService,
+      createSourceServiceMock() as InstagramSourceService,
+    );
 
     const result = await service.fetchWorkspaceInstagramData('ws-1');
 
@@ -110,13 +152,14 @@ describe('InstagramDataFetcherService', () => {
         }),
       ) as typeof fetch;
 
-    const service = new InstagramDataFetcherService({
-      instagramAccessToken: 'broken-token',
-      instagramUserId: '17841400000000000',
-      instagramGraphApiVersion: 'v21.0',
-      instagramMediaLimit: 20,
-      instagramProviderTimeoutMs: 5000,
-    } as AppConfigService);
+    const service = new InstagramDataFetcherService(
+      {
+        instagramGraphApiVersion: 'v21.0',
+        instagramMediaLimit: 20,
+        instagramProviderTimeoutMs: 5000,
+      } as AppConfigService,
+      createSourceServiceMock() as InstagramSourceService,
+    );
 
     const result = await service.fetchWorkspaceInstagramData('ws-1');
 

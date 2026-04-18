@@ -1,98 +1,97 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# WhatsApp Sales Engine Server
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Production-oriented NestJS backend for multi-tenant WhatsApp sales automation.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Requirements
 
-## Description
+- Node.js 22+
+- PostgreSQL (Supabase supported)
+- Redis (required for `bullmq` queue driver in staging/production)
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+## Setup
 
 ```bash
-$ npm install
+npm ci
+npm run prisma:generate
+npm run prisma:migrate:dev
+npm run start:dev
 ```
 
-## Compile and run the project
+## Core Environment Variables
+
+Copy `server/.env.example` to `server/.env` and configure at least:
+
+- `DATABASE_URL`: runtime database URL
+- `DIRECT_URL`: migration URL
+- `SECRET_ENCRYPTION_KEY`: base64 key, must decode to 32 bytes (AES-256-GCM)
+- `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`
+- `WHATSAPP_WEBHOOK_VERIFY_TOKEN`
+- `AI_DEFAULT_PROVIDER` + provider key (`GEMINI_API_KEY` or `OPENAI_API_KEY`)
+
+### Environment behavior
+
+- `APP_ENVIRONMENT=development|test|staging|production`
+- In `staging/production`:
+  - `QUEUE_DRIVER` must be `bullmq`
+  - `REDIS_URL` is required
+  - `WHATSAPP_ENV_FALLBACK_ENABLED` must be `false`
+  - `INSTAGRAM_ENV_FALLBACK_ENABLED` must be `false`
+  - `WEBHOOK_TEST_TOOL_ENABLED` must be `false`
+
+## Queue and Worker
+
+Two runtime roles are supported:
+
+- API: `npm run start:dev` (or `npm run start`)
+- Worker: `npm run build && npm run start:worker`
+
+Queue settings:
+
+- `QUEUE_DRIVER=memory|bullmq`
+- `QUEUE_INLINE_WORKERS=true|false`
+- `QUEUE_PREFIX`, concurrency and retry options in `.env.example`
+
+Production-like environments fail fast when queue config is invalid (for example missing Redis while using BullMQ).
+
+## Auth and Sessions
+
+- Login: `POST /auth/login`
+- Refresh: `POST /auth/refresh`
+- Current user: `GET /auth/me`
+- Admin session management: `GET /sessions`, `DELETE /sessions/:tokenId`, `POST /sessions/revoke-all`
+
+Session revocation is persisted in database (`auth_sessions`) and survives restarts/multi-instance deployments.
+
+## WhatsApp and Instagram source resolution
+
+- WhatsApp connection resolution is workspace-first (DB), optional env fallback in development.
+- Instagram source resolution is workspace-first (`instagram_connections`), optional env fallback in development.
+- Access tokens are encrypted at rest via AES-256-GCM.
+
+## Swagger / OpenAPI
+
+Swagger UI is available when enabled:
+
+- `SWAGGER_ENABLED=true`
+- `SWAGGER_PATH=docs`
+
+Default URL: `http://localhost:3000/docs`
+
+## Sentry
+
+Configure:
+
+- `SENTRY_ENABLED=true`
+- `SENTRY_DSN=https://...`
+
+Server exceptions are captured through a global filter. Request context is sanitized and sensitive keys (token/secret/password/cookie/auth headers) are scrubbed.
+
+## Test Commands
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm run lint
+npm run test:unit
+npm run test:integration
+npm run test:e2e
+npm run test:smoke
 ```
-
-## Run tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).

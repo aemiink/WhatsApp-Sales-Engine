@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import {
+  CryptoErrorCode,
+  CryptoOperationException,
+} from '../../common/errors/crypto.errors';
+import { SecretCryptoService } from '../../common/services/secret-crypto.service';
 import { AppConfigService } from '../../config/app-config.service';
 import { PrismaService } from '../../database/prisma.service';
 import {
@@ -57,22 +62,41 @@ export class WhatsAppConnectionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly appConfigService: AppConfigService,
+    private readonly secretCryptoService: SecretCryptoService,
   ) {}
 
   async resolveConnection(
     workspaceId?: string,
   ): Promise<ResolvedWhatsAppConnection> {
-    const fromEnv = this.resolveFromEnvironment();
     const fromDb = await this.resolveFromDatabase(workspaceId);
+    const shouldAllowEnvFallback = this.shouldAllowEnvFallback();
+
+    if (!fromDb && workspaceId && !shouldAllowEnvFallback) {
+      throw new MissingWhatsAppConfigException(
+        `No WhatsApp connection configured for workspace=${workspaceId}. Environment fallback is disabled for ${this.appConfigService.appEnvironment}.`,
+      );
+    }
+
+    if (!fromDb && !workspaceId && !shouldAllowEnvFallback) {
+      throw new MissingWhatsAppConfigException(
+        `No workspace WhatsApp connection found and environment fallback is disabled for ${this.appConfigService.appEnvironment}.`,
+      );
+    }
+
+    const fromEnv = shouldAllowEnvFallback
+      ? this.resolveFromEnvironment()
+      : undefined;
 
     const resolved: ResolvedWhatsAppConnection = {
       workspaceId: fromDb?.workspaceId ?? workspaceId,
-      accessToken: fromDb?.accessToken ?? fromEnv.accessToken,
-      phoneNumberId: fromDb?.phoneNumberId ?? fromEnv.phoneNumberId,
-      businessAccountId: fromDb?.businessAccountId ?? fromEnv.businessAccountId,
+      accessToken: fromDb?.accessToken ?? fromEnv?.accessToken ?? '',
+      phoneNumberId: fromDb?.phoneNumberId ?? fromEnv?.phoneNumberId ?? '',
+      businessAccountId:
+        fromDb?.businessAccountId ?? fromEnv?.businessAccountId,
       webhookVerifyToken:
-        fromDb?.webhookVerifyToken ?? fromEnv.webhookVerifyToken,
-      graphApiVersion: fromEnv.graphApiVersion,
+        fromDb?.webhookVerifyToken ??
+        this.appConfigService.whatsappWebhookVerifyToken,
+      graphApiVersion: this.appConfigService.metaGraphApiVersion,
     };
 
     if (!resolved.accessToken || !resolved.phoneNumberId) {
@@ -214,13 +238,19 @@ export class WhatsAppConnectionService {
     };
   }
 
-  private resolveFromEnvironment(): Omit<
-    ResolvedWhatsAppConnection,
-    'workspaceId'
-  > {
+  private resolveFromEnvironment():
+    | Omit<ResolvedWhatsAppConnection, 'workspaceId'>
+    | undefined {
+    const accessToken = this.appConfigService.whatsappAccessToken;
+    const phoneNumberId = this.appConfigService.whatsappPhoneNumberId;
+
+    if (!accessToken || !phoneNumberId) {
+      return undefined;
+    }
+
     return {
-      accessToken: this.appConfigService.whatsappAccessToken,
-      phoneNumberId: this.appConfigService.whatsappPhoneNumberId,
+      accessToken,
+      phoneNumberId,
       businessAccountId: this.appConfigService.whatsappBusinessAccountId,
       webhookVerifyToken: this.appConfigService.whatsappWebhookVerifyToken,
       graphApiVersion: this.appConfigService.metaGraphApiVersion,
@@ -256,24 +286,16 @@ export class WhatsAppConnectionService {
 
       return {
         workspaceId: connection.workspaceId,
-        accessToken: this.decryptAccessToken(connection.accessTokenEncrypted),
+        accessToken: await this.resolveStoredAccessToken(connection),
         phoneNumberId: connection.phoneNumberId,
         businessAccountId: connection.businessAccountId ?? undefined,
         webhookVerifyToken: connection.webhookVerifyToken ?? undefined,
       };
     } catch (error: unknown) {
-      this.logger.warn(
-        'Failed to resolve WhatsApp connection from database. Falling back to env config.',
+      throw new WhatsAppConnectionResolutionException(
+        `Failed to resolve WhatsApp connection for workspace: ${workspaceId ?? 'global'}`,
+        error,
       );
-
-      if (workspaceId) {
-        throw new WhatsAppConnectionResolutionException(
-          `Failed to resolve WhatsApp connection for workspace: ${workspaceId}`,
-          error,
-        );
-      }
-
-      return undefined;
     }
   }
 
@@ -436,14 +458,71 @@ export class WhatsAppConnectionService {
     return 'unknown_error';
   }
 
-  private decryptAccessToken(accessTokenEncrypted: string): string {
-    if (accessTokenEncrypted.startsWith('base64:')) {
-      return Buffer.from(
-        accessTokenEncrypted.replace('base64:', ''),
-        'base64',
-      ).toString('utf8');
+  private shouldAllowEnvFallback(): boolean {
+    return this.appConfigService.whatsappEnvFallbackEnabled;
+  }
+
+  private async resolveStoredAccessToken(connection: {
+    id: string;
+    accessTokenEncrypted: string;
+  }): Promise<string> {
+    const storedValue = connection.accessTokenEncrypted;
+
+    if (this.secretCryptoService.isEncryptedPayload(storedValue)) {
+      try {
+        return this.secretCryptoService.decrypt(storedValue);
+      } catch (error: unknown) {
+        throw new WhatsAppConnectionResolutionException(
+          'Failed to decrypt workspace WhatsApp access token.',
+          error,
+        );
+      }
     }
 
-    return accessTokenEncrypted;
+    const legacyToken = this.decodeLegacyStoredToken(storedValue);
+    if (!legacyToken || legacyToken.trim().length === 0) {
+      throw new MissingWhatsAppConfigException(
+        'Workspace WhatsApp access token is empty.',
+      );
+    }
+
+    try {
+      const reEncrypted = this.secretCryptoService.encrypt(legacyToken);
+      await this.prisma.whatsAppConnection.update({
+        where: {
+          id: connection.id,
+        },
+        data: {
+          accessTokenEncrypted: reEncrypted,
+        },
+      });
+    } catch (error: unknown) {
+      if (
+        error instanceof CryptoOperationException &&
+        error.code === CryptoErrorCode.ENCRYPTION_FAILED
+      ) {
+        throw new WhatsAppConnectionResolutionException(
+          'Failed to re-encrypt legacy WhatsApp access token.',
+          error,
+        );
+      }
+
+      throw error;
+    }
+
+    this.logger.warn(
+      `Legacy WhatsApp token format auto-migrated to encrypted payload for connection=${connection.id}.`,
+    );
+    return legacyToken;
+  }
+
+  private decodeLegacyStoredToken(value: string): string {
+    if (value.startsWith('base64:')) {
+      return Buffer.from(value.replace('base64:', ''), 'base64').toString(
+        'utf8',
+      );
+    }
+
+    return value;
   }
 }

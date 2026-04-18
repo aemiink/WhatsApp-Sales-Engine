@@ -14,6 +14,8 @@ describe('Execution Endpoints (e2e)', () => {
       'postgresql://postgres:postgres@localhost:5432/whatsapp_sales_engine?schema=public';
     process.env.DIRECT_URL ??=
       'postgresql://postgres:postgres@localhost:5432/whatsapp_sales_engine?schema=public';
+    process.env.SECRET_ENCRYPTION_KEY ??=
+      'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=';
     process.env.AI_DEFAULT_PROVIDER ??= 'gemini';
     process.env.GEMINI_API_KEY ??= 'test-gemini-key';
     process.env.GEMINI_MODEL ??= 'gemini-1.5-flash';
@@ -23,7 +25,12 @@ describe('Execution Endpoints (e2e)', () => {
     process.env.WHATSAPP_ACCESS_TOKEN ??= 'test-wa-access-token';
     process.env.WHATSAPP_PHONE_NUMBER_ID ??= '123456789';
     process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN ??= 'test-webhook-token';
+    process.env.WHATSAPP_ENV_FALLBACK_ENABLED ??= 'true';
     process.env.META_GRAPH_API_VERSION ??= 'v21.0';
+    process.env.INSTAGRAM_ENV_FALLBACK_ENABLED ??= 'true';
+    process.env.SENTRY_ENABLED ??= 'false';
+    process.env.SWAGGER_ENABLED ??= 'false';
+    process.env.WEBHOOK_TEST_TOOL_ENABLED ??= 'true';
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],

@@ -150,7 +150,9 @@ export function useNotifications(): UseNotificationsResult {
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      void refresh();
+      if (!streamHealthyRef.current) {
+        void refresh();
+      }
     }, 30000);
 
     return () => {
@@ -159,14 +161,27 @@ export function useNotifications(): UseNotificationsResult {
   }, [refresh]);
 
   useEffect(() => {
-    const tokens = tokenStorage.read();
-    if (!tokens?.accessToken) {
-      return undefined;
-    }
-
     const controller = new AbortController();
+    let reconnectTimer: number | null = null;
+
+    const scheduleReconnect = () => {
+      if (controller.signal.aborted || reconnectTimer !== null) {
+        return;
+      }
+
+      reconnectTimer = window.setTimeout(() => {
+        reconnectTimer = null;
+        void start();
+      }, 2000);
+    };
 
     const start = async () => {
+      const tokens = tokenStorage.read();
+      if (!tokens?.accessToken) {
+        streamHealthyRef.current = false;
+        return;
+      }
+
       try {
         const response = await fetch(`${API_BASE_URL}/notifications/stream`, {
           method: 'GET',
@@ -179,6 +194,7 @@ export function useNotifications(): UseNotificationsResult {
 
         if (!response.ok || !response.body) {
           streamHealthyRef.current = false;
+          scheduleReconnect();
           return;
         }
 
@@ -191,6 +207,9 @@ export function useNotifications(): UseNotificationsResult {
         while (true) {
           const chunk = await reader.read();
           if (chunk.done) {
+            streamHealthyRef.current = false;
+            void refresh();
+            scheduleReconnect();
             break;
           }
 
@@ -267,6 +286,8 @@ export function useNotifications(): UseNotificationsResult {
         }
       } catch {
         streamHealthyRef.current = false;
+        void refresh();
+        scheduleReconnect();
       }
     };
 
@@ -274,6 +295,9 @@ export function useNotifications(): UseNotificationsResult {
 
     return () => {
       controller.abort();
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer);
+      }
     };
   }, [refresh]);
 

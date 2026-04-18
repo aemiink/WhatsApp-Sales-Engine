@@ -3,7 +3,11 @@ import { PrismaService } from '../database/prisma.service';
 import { AppConfigService } from '../config/app-config.service';
 
 export type AlertChannel = 'email' | 'slack';
-export type AlertType = 'connection_error' | 'rate_limit' | 'ai_failure' | 'hot_lead';
+export type AlertType =
+  | 'connection_error'
+  | 'rate_limit'
+  | 'ai_failure'
+  | 'hot_lead';
 
 interface AlertConfig {
   workspaceId: string;
@@ -23,11 +27,11 @@ export class AlertingService {
     private readonly config: AppConfigService,
   ) {}
 
-  async configure(workspaceId: string, configs: AlertConfig[]) {
+  configure(workspaceId: string, configs: AlertConfig[]): void {
     this.configs.set(workspaceId, configs);
   }
 
-  async sendAlert(workspaceId: string, alertType: AlertType, message: string) {
+  sendAlert(workspaceId: string, alertType: AlertType, message: string): void {
     const workspaceConfigs = this.configs.get(workspaceId) ?? [];
 
     for (const cfg of workspaceConfigs) {
@@ -35,9 +39,9 @@ export class AlertingService {
 
       try {
         if (cfg.channel === 'email') {
-          await this.sendEmailAlert(cfg.destination, alertType, message);
+          this.sendEmailAlert(cfg.destination, alertType, message);
         } else if (cfg.channel === 'slack') {
-          await this.sendSlackAlert(cfg.destination, alertType, message);
+          this.sendSlackAlert(cfg.destination, alertType, message);
         }
       } catch (error) {
         this.logger.error(`Failed to send alert via ${cfg.channel}`, error);
@@ -45,12 +49,20 @@ export class AlertingService {
     }
   }
 
-  private async sendEmailAlert(email: string, alertType: AlertType, message: string) {
+  private sendEmailAlert(
+    email: string,
+    alertType: AlertType,
+    message: string,
+  ): void {
     const subject = `[WhatsApp Sales Engine] ${this.formatAlertType(alertType)}`;
     this.logger.log(`Email alert to ${email}: ${subject} - ${message}`);
   }
 
-  private async sendSlackAlert(webhookUrl: string, alertType: AlertType, message: string) {
+  private sendSlackAlert(
+    webhookUrl: string,
+    alertType: AlertType,
+    message: string,
+  ): void {
     const payload = {
       text: `*WhatsApp Sales Engine Alert*`,
       blocks: [

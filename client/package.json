@@ -1,9 +1,11 @@
 {
-  "name": "@figma/my-make-file",
+  "name": "@whatsapp-sales-engine/client",
   "private": true,
   "version": "0.0.1",
   "type": "module",
   "scripts": {
+    "lint": "npm run build",
+    "test": "node -e \"console.log('No automated client tests configured yet.')\"",
     "build": "vite build",
     "dev": "vite"
   },

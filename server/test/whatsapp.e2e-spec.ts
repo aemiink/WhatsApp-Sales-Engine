@@ -1,5 +1,15 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import {
+  AiMode,
+  ConversationStatus,
+  LeadStage,
+  MessageDirection,
+  MessageStatus,
+  MessageType,
+  Prisma,
+  SenderType,
+} from '@prisma/client';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
@@ -12,19 +22,13 @@ import { WHATSAPP_PROVIDER_TOKEN } from '../src/whatsapp/providers/whatsapp-prov
 import { WhatsAppConnectionService } from '../src/whatsapp/services/whatsapp-connection.service';
 import { WhatsAppDedupService } from '../src/whatsapp/services/whatsapp-dedup.service';
 
-type LeadStage = 'NEW';
-type ConversationStatus = 'ACTIVE';
-type SenderType = 'USER' | 'AI';
-type MessageDirection = 'INBOUND' | 'OUTBOUND';
-type MessageType = 'TEXT' | 'STATUS' | 'UNKNOWN';
-type MessageStatus = 'SENT' | 'DELIVERED' | 'READ' | 'RECEIVED' | 'UNKNOWN';
-
 interface StoredConversation {
   id: string;
   workspaceId: string;
   phoneNumber: string;
   leadStage: LeadStage;
   status: ConversationStatus;
+  aiMode: AiMode;
   lastMessageAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -38,7 +42,7 @@ interface StoredMessage {
   direction: MessageDirection;
   messageType: MessageType;
   content: string | null;
-  rawPayload: unknown;
+  rawPayload: Prisma.JsonValue;
   status: MessageStatus;
   timestamp: Date | null;
   createdAt: Date;
@@ -107,8 +111,9 @@ describe('WhatsApp Module (e2e)', () => {
           id: nextId('conv'),
           workspaceId: input.workspaceId,
           phoneNumber: input.phoneNumber,
-          leadStage: 'NEW',
-          status: 'ACTIVE',
+          leadStage: LeadStage.NEW,
+          status: ConversationStatus.ACTIVE,
+          aiMode: AiMode.AUTO_REPLY,
           lastMessageAt: null,
           createdAt: now(),
           updatedAt: now(),
@@ -131,8 +136,9 @@ describe('WhatsApp Module (e2e)', () => {
           id: nextId('conv'),
           workspaceId,
           phoneNumber,
-          leadStage: 'NEW',
-          status: 'ACTIVE',
+          leadStage: LeadStage.NEW,
+          status: ConversationStatus.ACTIVE,
+          aiMode: AiMode.AUTO_REPLY,
           lastMessageAt: null,
           createdAt: now(),
           updatedAt: now(),
@@ -150,6 +156,7 @@ describe('WhatsApp Module (e2e)', () => {
               phoneNumber: conversation.phoneNumber,
               leadStage: conversation.leadStage,
               status: conversation.status,
+              aiMode: conversation.aiMode,
               lastMessageAt: conversation.lastMessageAt,
             })),
         );
@@ -200,12 +207,13 @@ describe('WhatsApp Module (e2e)', () => {
           id: nextId('msg'),
           conversationId,
           externalMessageId: event.externalMessageId,
-          senderType: 'USER',
-          direction: 'INBOUND',
-          messageType: event.messageType === 'text' ? 'TEXT' : 'UNKNOWN',
+          senderType: SenderType.USER,
+          direction: MessageDirection.INBOUND,
+          messageType:
+            event.messageType === 'text' ? MessageType.TEXT : MessageType.UNKNOWN,
           content: event.textBody,
-          rawPayload: event.rawPayload,
-          status: 'RECEIVED',
+          rawPayload: event.rawPayload as Prisma.JsonValue,
+          status: MessageStatus.RECEIVED,
           timestamp: event.timestamp
             ? new Date(Number(event.timestamp) * 1000)
             : null,
@@ -236,12 +244,12 @@ describe('WhatsApp Module (e2e)', () => {
           id: nextId('msg'),
           conversationId,
           externalMessageId: externalMessageId ?? null,
-          senderType: 'AI',
-          direction: 'OUTBOUND',
-          messageType: 'TEXT',
+          senderType: SenderType.AI,
+          direction: MessageDirection.OUTBOUND,
+          messageType: MessageType.TEXT,
           content,
-          rawPayload,
-          status: 'SENT',
+          rawPayload: rawPayload as Prisma.JsonValue,
+          status: MessageStatus.SENT,
           timestamp: timestamp ?? createdAt,
           createdAt,
         };
@@ -278,15 +286,15 @@ describe('WhatsApp Module (e2e)', () => {
         }
 
         if (event.status === 'sent') {
-          message.status = 'SENT';
+          message.status = MessageStatus.SENT;
         } else if (event.status === 'delivered') {
-          message.status = 'DELIVERED';
+          message.status = MessageStatus.DELIVERED;
         } else if (event.status === 'read') {
-          message.status = 'READ';
+          message.status = MessageStatus.READ;
         } else if (event.status === 'received') {
-          message.status = 'RECEIVED';
+          message.status = MessageStatus.RECEIVED;
         } else {
-          message.status = 'UNKNOWN';
+          message.status = MessageStatus.UNKNOWN;
         }
 
         return Promise.resolve(true);

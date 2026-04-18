@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 
 export interface CreateAuditLogInput {
@@ -27,7 +28,9 @@ export class AuditLogService {
           action: input.action,
           entityType: input.entityType,
           entityId: input.entityId,
-          metadata: input.metadata as any,
+          metadata: input.metadata
+            ? (input.metadata as Prisma.InputJsonValue)
+            : undefined,
           ipAddress: input.ipAddress,
           userAgent: input.userAgent,
         },
@@ -56,8 +59,10 @@ export class AuditLogService {
     if (options?.entityType) where.entityType = options.entityType;
     if (options?.startDate || options?.endDate) {
       where.createdAt = {};
-      if (options?.startDate) (where.createdAt as Record<string, Date>).gte = options.startDate;
-      if (options?.endDate) (where.createdAt as Record<string, Date>).lte = options.endDate;
+      if (options?.startDate)
+        (where.createdAt as Record<string, Date>).gte = options.startDate;
+      if (options?.endDate)
+        (where.createdAt as Record<string, Date>).lte = options.endDate;
     }
 
     return this.prisma.auditLog.findMany({

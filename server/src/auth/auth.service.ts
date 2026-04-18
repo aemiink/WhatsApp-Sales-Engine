@@ -4,6 +4,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { WorkspaceRole } from '@prisma/client';
 import { AppConfigService } from '../config/app-config.service';
@@ -11,6 +12,7 @@ import { PrismaService } from '../database/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { AppRole, RequestUser } from './interfaces/request-user.interface';
+import { TokenRevocationService } from './services/token-revocation.service';
 import { createPasswordHash, verifyPassword } from './utils/password-hash.util';
 
 interface AuthTokenPayload {
@@ -19,6 +21,7 @@ interface AuthTokenPayload {
   workspaceId: string;
   role: AppRole;
   type: 'access' | 'refresh';
+  sid: string;
 }
 
 @Injectable()
@@ -29,6 +32,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly appConfigService: AppConfigService,
+    private readonly tokenRevocationService: TokenRevocationService,
   ) {}
 
   async login(input: LoginDto) {
@@ -91,6 +95,14 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token type');
     }
 
+    if (!payload.sid || payload.sid.trim().length === 0) {
+      throw new UnauthorizedException('Refresh token session is missing');
+    }
+
+    if (await this.tokenRevocationService.isTokenRevoked(payload.sid)) {
+      throw new UnauthorizedException('Refresh token session has been revoked');
+    }
+
     const user = await this.prisma.user.findUnique({
       where: {
         id: payload.sub,
@@ -115,6 +127,21 @@ export class AuthService {
 
     const membership = user.memberships[0];
 
+    const sessionIsValid =
+      await this.tokenRevocationService.validateSessionContext({
+        tokenId: payload.sid,
+        userId: user.id,
+        workspaceId: membership.workspaceId,
+      });
+
+    if (!sessionIsValid) {
+      throw new UnauthorizedException(
+        'Refresh token session context is invalid',
+      );
+    }
+
+    await this.tokenRevocationService.touchSession(payload.sid);
+
     return this.issueTokens({
       userId: user.id,
       email: user.email,
@@ -122,6 +149,7 @@ export class AuthService {
       workspaceId: membership.workspaceId,
       workspaceName: membership.workspace.name,
       role: this.toAppRole(membership.role),
+      tokenId: payload.sid,
     });
   }
 
@@ -169,13 +197,16 @@ export class AuthService {
     workspaceId: string;
     workspaceName: string;
     role: AppRole;
+    tokenId?: string;
   }) {
+    const sessionTokenId = input.tokenId ?? randomUUID();
     const accessPayload: AuthTokenPayload = {
       sub: input.userId,
       email: input.email,
       workspaceId: input.workspaceId,
       role: input.role,
       type: 'access',
+      sid: sessionTokenId,
     };
 
     const refreshPayload: AuthTokenPayload = {
@@ -194,9 +225,20 @@ export class AuthService {
       }),
     ]);
 
+    await this.tokenRevocationService.registerSession({
+      tokenId: sessionTokenId,
+      userId: input.userId,
+      email: input.email,
+      workspaceId: input.workspaceId,
+      expiresAt: new Date(
+        Date.now() + this.appConfigService.jwtRefreshExpiresInSeconds * 1000,
+      ),
+    });
+
     return {
       accessToken,
       refreshToken,
+      tokenId: sessionTokenId,
       expiresIn: this.appConfigService.jwtAccessExpiresInSeconds,
       user: {
         id: input.userId,

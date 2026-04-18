@@ -13,6 +13,7 @@ import {
   AppRole,
   RequestUser,
 } from '../interfaces/request-user.interface';
+import { TokenRevocationService } from '../services/token-revocation.service';
 
 interface JwtPayload {
   sub: string;
@@ -20,6 +21,7 @@ interface JwtPayload {
   workspaceId: string;
   role: AppRole;
   type: 'access' | 'refresh';
+  sid: string;
 }
 
 interface AuthenticatedRequest {
@@ -35,9 +37,10 @@ export class JwtAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly jwtService: JwtService,
     private readonly appConfigService: AppConfigService,
+    private readonly tokenRevocationService: TokenRevocationService,
   ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -82,6 +85,33 @@ export class JwtAuthGuard implements CanActivate {
 
     if (!APP_ROLES.includes(payload.role)) {
       throw new UnauthorizedException('Invalid role in token');
+    }
+
+    if (!payload.sid || payload.sid.trim().length === 0) {
+      throw new UnauthorizedException('Access token session is missing');
+    }
+
+    if (!this.appConfigService.isTest) {
+      if (await this.tokenRevocationService.isTokenRevoked(payload.sid)) {
+        throw new UnauthorizedException(
+          'Access token session has been revoked',
+        );
+      }
+
+      const sessionContextValid =
+        await this.tokenRevocationService.validateSessionContext({
+          tokenId: payload.sid,
+          userId: payload.sub,
+          workspaceId: payload.workspaceId,
+        });
+
+      if (!sessionContextValid) {
+        throw new UnauthorizedException(
+          'Access token session context is invalid',
+        );
+      }
+
+      await this.tokenRevocationService.touchSession(payload.sid);
     }
 
     request.user = {

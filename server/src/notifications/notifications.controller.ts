@@ -8,6 +8,7 @@ import {
   Query,
   Sse,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Observable, filter, map } from 'rxjs';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../auth/interfaces/request-user.interface';
@@ -15,6 +16,8 @@ import { ListNotificationsQueryDto } from './dto/list-notifications-query.dto';
 import { NotificationsService } from './services/notifications.service';
 import { RealtimeNotificationsService } from './services/realtime-notifications.service';
 
+@ApiTags('notifications')
+@ApiBearerAuth('bearer')
 @Controller('notifications')
 export class NotificationsController {
   constructor(

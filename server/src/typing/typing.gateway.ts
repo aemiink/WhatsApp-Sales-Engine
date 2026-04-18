@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-const typingSessions = new Map<string, { conversationId: string; userId: string; startedAt: number }>();
+const typingSessions = new Map<
+  string,
+  { conversationId: string; userId: string; startedAt: number }
+>();
 
 @Injectable()
 export class TypingService {

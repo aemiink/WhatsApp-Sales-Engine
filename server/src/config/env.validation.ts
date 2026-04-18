@@ -25,13 +25,26 @@ function parseCorsOrigins(value: unknown): string[] {
     .filter((entry) => entry.length > 0);
 }
 
+function isValidBase64Key(value: string, expectedLength: number): boolean {
+  try {
+    return Buffer.from(value, 'base64').length === expectedLength;
+  } catch {
+    return false;
+  }
+}
+
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'test', 'production')
     .default('development'),
+  APP_ENVIRONMENT: Joi.string()
+    .valid('development', 'test', 'staging', 'production')
+    .optional()
+    .allow(''),
   PORT: Joi.number().integer().positive().default(3000),
   APP_VERSION: Joi.string().trim().optional().allow(''),
   APP_ROLE: Joi.string().valid('api', 'worker').default('api'),
+  SECRET_ENCRYPTION_KEY: Joi.string().trim().required(),
   DATABASE_URL: Joi.string().trim().required(),
   DIRECT_URL: Joi.string().trim().required(),
   JWT_ACCESS_SECRET: Joi.string().trim().min(16).required(),
@@ -101,13 +114,14 @@ export const envValidationSchema = Joi.object({
   QUEUE_OUTBOUND_CONCURRENCY: Joi.number().integer().min(1).max(100).default(5),
   QUEUE_JOB_REMOVE_ON_COMPLETE: Joi.number().integer().min(0).default(500),
   QUEUE_JOB_REMOVE_ON_FAIL: Joi.number().integer().min(0).default(1000),
-  WHATSAPP_ACCESS_TOKEN: Joi.string().trim().required(),
-  WHATSAPP_PHONE_NUMBER_ID: Joi.string().trim().required(),
+  WHATSAPP_ACCESS_TOKEN: Joi.string().trim().optional().allow(''),
+  WHATSAPP_PHONE_NUMBER_ID: Joi.string().trim().optional().allow(''),
   WHATSAPP_BUSINESS_ACCOUNT_ID: Joi.string().trim().optional().allow(''),
   WHATSAPP_WEBHOOK_VERIFY_TOKEN: Joi.string().trim().required(),
   WHATSAPP_APP_SECRET: Joi.string().trim().optional().allow(''),
   WHATSAPP_WEBHOOK_SIGNATURE_REQUIRED: Joi.boolean().default(false),
   WHATSAPP_PROVIDER_TIMEOUT_MS: Joi.number().integer().min(1000).default(12000),
+  WHATSAPP_ENV_FALLBACK_ENABLED: Joi.boolean().default(true),
   META_GRAPH_API_VERSION: Joi.string()
     .trim()
     .pattern(/^v\d+\.\d+$/)
@@ -130,14 +144,24 @@ export const envValidationSchema = Joi.object({
     .integer()
     .min(1000)
     .default(12000),
+  INSTAGRAM_ENV_FALLBACK_ENABLED: Joi.boolean().default(true),
   RESEND_API_KEY: Joi.string().trim().optional().allow(''),
   EMAIL_PROVIDER_TIMEOUT_MS: Joi.number().integer().min(1000).default(10000),
   EMAIL_FROM_ADDRESS: Joi.string().trim().email().optional().allow(''),
   APP_BASE_URL: Joi.string().trim().uri().optional().allow(''),
   SENTRY_DSN: Joi.string().trim().uri().optional().allow(''),
+  SENTRY_ENABLED: Joi.boolean().default(false),
+  SWAGGER_ENABLED: Joi.boolean().default(true),
+  SWAGGER_PATH: Joi.string().trim().default('docs'),
+  WEBHOOK_TEST_TOOL_ENABLED: Joi.boolean().default(true),
 })
   .custom((value: Record<string, unknown>, helpers) => {
     const nodeEnv = value.NODE_ENV;
+    const appEnvironment =
+      typeof value.APP_ENVIRONMENT === 'string' &&
+      value.APP_ENVIRONMENT.trim().length > 0
+        ? value.APP_ENVIRONMENT.trim()
+        : nodeEnv;
     const authBypassInTest = Boolean(value.AUTH_BYPASS_IN_TEST);
     const corsAllowCredentials = Boolean(value.CORS_ALLOW_CREDENTIALS);
     const corsOrigins = parseCorsOrigins(value.CORS_ALLOWED_ORIGINS);
@@ -152,6 +176,14 @@ export const envValidationSchema = Joi.object({
       typeof value.WHATSAPP_APP_SECRET === 'string'
         ? value.WHATSAPP_APP_SECRET.trim()
         : '';
+    const whatsappAccessToken =
+      typeof value.WHATSAPP_ACCESS_TOKEN === 'string'
+        ? value.WHATSAPP_ACCESS_TOKEN.trim()
+        : '';
+    const whatsappPhoneNumberId =
+      typeof value.WHATSAPP_PHONE_NUMBER_ID === 'string'
+        ? value.WHATSAPP_PHONE_NUMBER_ID.trim()
+        : '';
     const instagramAccessToken =
       typeof value.INSTAGRAM_ACCESS_TOKEN === 'string'
         ? value.INSTAGRAM_ACCESS_TOKEN.trim()
@@ -160,11 +192,27 @@ export const envValidationSchema = Joi.object({
       typeof value.INSTAGRAM_USER_ID === 'string'
         ? value.INSTAGRAM_USER_ID.trim()
         : '';
+    const secretEncryptionKey =
+      typeof value.SECRET_ENCRYPTION_KEY === 'string'
+        ? value.SECRET_ENCRYPTION_KEY.trim()
+        : '';
+    const sentryEnabled = Boolean(value.SENTRY_ENABLED);
+    const sentryDsn =
+      typeof value.SENTRY_DSN === 'string' ? value.SENTRY_DSN.trim() : '';
+    const isProductionLike =
+      appEnvironment === 'production' || appEnvironment === 'staging';
 
     if (authBypassInTest && nodeEnv !== 'test') {
       return helpers.error('any.custom', {
         message:
           'AUTH_BYPASS_IN_TEST can only be enabled when NODE_ENV is test.',
+      });
+    }
+
+    if (!isValidBase64Key(secretEncryptionKey, 32)) {
+      return helpers.error('any.custom', {
+        message:
+          'SECRET_ENCRYPTION_KEY must be base64 encoded and decode to exactly 32 bytes.',
       });
     }
 
@@ -188,7 +236,25 @@ export const envValidationSchema = Joi.object({
       });
     }
 
-    if (nodeEnv === 'production') {
+    if (value.WHATSAPP_ENV_FALLBACK_ENABLED) {
+      if (
+        whatsappAccessToken.length === 0 ||
+        whatsappPhoneNumberId.length === 0
+      ) {
+        return helpers.error('any.custom', {
+          message:
+            'WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID are required when WHATSAPP_ENV_FALLBACK_ENABLED is true.',
+        });
+      }
+    }
+
+    if (sentryEnabled && sentryDsn.length === 0) {
+      return helpers.error('any.custom', {
+        message: 'SENTRY_DSN is required when SENTRY_ENABLED is true.',
+      });
+    }
+
+    if (isProductionLike) {
       const accessSecret =
         typeof value.JWT_ACCESS_SECRET === 'string'
           ? value.JWT_ACCESS_SECRET
@@ -232,6 +298,27 @@ export const envValidationSchema = Joi.object({
         });
       }
 
+      if (value.WHATSAPP_ENV_FALLBACK_ENABLED) {
+        return helpers.error('any.custom', {
+          message:
+            'WHATSAPP_ENV_FALLBACK_ENABLED must be false in staging/production.',
+        });
+      }
+
+      if (value.INSTAGRAM_ENV_FALLBACK_ENABLED) {
+        return helpers.error('any.custom', {
+          message:
+            'INSTAGRAM_ENV_FALLBACK_ENABLED must be false in staging/production.',
+        });
+      }
+
+      if (value.WEBHOOK_TEST_TOOL_ENABLED) {
+        return helpers.error('any.custom', {
+          message:
+            'WEBHOOK_TEST_TOOL_ENABLED must be false in staging/production.',
+        });
+      }
+
       const appBaseUrl =
         typeof value.APP_BASE_URL === 'string' ? value.APP_BASE_URL : '';
       if (appBaseUrl.length > 0 && !appBaseUrl.startsWith('https://')) {
@@ -239,13 +326,17 @@ export const envValidationSchema = Joi.object({
           message: 'APP_BASE_URL must use https:// in production.',
         });
       }
+    }
 
-      if (instagramAccessToken.length === 0 || instagramUserId.length === 0) {
-        return helpers.error('any.custom', {
-          message:
-            'INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_USER_ID must be configured in production for real Instagram ingestion.',
-        });
-      }
+    if (
+      !value.INSTAGRAM_ENV_FALLBACK_ENABLED &&
+      instagramAccessToken.length > 0 &&
+      instagramUserId.length === 0
+    ) {
+      return helpers.error('any.custom', {
+        message:
+          'INSTAGRAM_USER_ID must be set when INSTAGRAM_ACCESS_TOKEN is configured.',
+      });
     }
 
     return value;

@@ -6,6 +6,7 @@ import {
   Param,
   Post,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import type { RequestUser } from '../auth/interfaces/request-user.interface';
@@ -14,6 +15,8 @@ import { AnalyzeWebsiteDto } from './dto/analyze-website.dto';
 import { UpsertBrandContextDto } from './dto/upsert-brand-context.dto';
 import { BrandContextService } from './brand-context.service';
 
+@ApiTags('brand-context')
+@ApiBearerAuth('bearer')
 @Controller('brand-context')
 export class BrandContextController {
   constructor(private readonly brandContextService: BrandContextService) {}

@@ -250,6 +250,30 @@ export interface ConnectionActionResponse {
   status: ConnectionStatusResponse;
 }
 
+export interface WebhookTestEvent {
+  dedupKey: string;
+  normalizedEvent: {
+    eventType: string;
+    externalMessageId: string | null;
+    fromPhoneNumber: string | null;
+    timestamp: string | null;
+    messageType: string | null;
+    textBody: string | null;
+    status: string | null;
+    contactProfileName: string | null;
+  };
+}
+
+export interface WebhookTestResponse {
+  received: boolean;
+  eventCount: number;
+  processedCount: number;
+  duplicateCount: number;
+  ignoredCount: number;
+  errorCount: number;
+  events: WebhookTestEvent[];
+}
+
 function normalizeLeadStage(value: unknown): LeadStage {
   const normalized = String(value ?? '').toLowerCase();
   if (normalized === 'qualified') {
@@ -488,6 +512,76 @@ function toConnectionStatus(value: unknown): ConnectionStatusResponse {
           ? healthRecord.message
           : 'Connection status unavailable.',
     },
+  };
+}
+
+function toWebhookTestResponse(value: unknown): WebhookTestResponse {
+  if (!isRecord(value)) {
+    return {
+      received: false,
+      eventCount: 0,
+      processedCount: 0,
+      duplicateCount: 0,
+      ignoredCount: 0,
+      errorCount: 1,
+      events: [],
+    };
+  }
+
+  const rawEvents = Array.isArray(value.events) ? value.events : [];
+  const events: WebhookTestEvent[] = rawEvents
+    .filter((entry): entry is Record<string, unknown> => isRecord(entry))
+    .map((entry) => {
+      const normalized = isRecord(entry.normalizedEvent)
+        ? entry.normalizedEvent
+        : {};
+
+      return {
+        dedupKey:
+          typeof entry.dedupKey === 'string'
+            ? entry.dedupKey
+            : `dedup-${Math.random().toString(16).slice(2)}`,
+        normalizedEvent: {
+          eventType:
+            typeof normalized.eventType === 'string'
+              ? normalized.eventType
+              : 'unknown',
+          externalMessageId:
+            typeof normalized.externalMessageId === 'string'
+              ? normalized.externalMessageId
+              : null,
+          fromPhoneNumber:
+            typeof normalized.fromPhoneNumber === 'string'
+              ? normalized.fromPhoneNumber
+              : null,
+          timestamp:
+            typeof normalized.timestamp === 'string' ? normalized.timestamp : null,
+          messageType:
+            typeof normalized.messageType === 'string'
+              ? normalized.messageType
+              : null,
+          textBody:
+            typeof normalized.textBody === 'string' ? normalized.textBody : null,
+          status:
+            typeof normalized.status === 'string' ? normalized.status : null,
+          contactProfileName:
+            typeof normalized.contactProfileName === 'string'
+              ? normalized.contactProfileName
+              : null,
+        },
+      };
+    });
+
+  return {
+    received: Boolean(value.received),
+    eventCount: typeof value.eventCount === 'number' ? value.eventCount : 0,
+    processedCount:
+      typeof value.processedCount === 'number' ? value.processedCount : 0,
+    duplicateCount:
+      typeof value.duplicateCount === 'number' ? value.duplicateCount : 0,
+    ignoredCount: typeof value.ignoredCount === 'number' ? value.ignoredCount : 0,
+    errorCount: typeof value.errorCount === 'number' ? value.errorCount : 0,
+    events,
   };
 }
 
@@ -926,6 +1020,19 @@ export async function removeWhatsAppConnection(): Promise<ConnectionActionRespon
       typeof data.checkedAt === 'string' ? data.checkedAt : new Date().toISOString(),
     status: toConnectionStatus(data.status),
   };
+}
+
+export async function testWebhookPayload(
+  payload: Record<string, unknown>,
+): Promise<WebhookTestResponse> {
+  const data = await apiRequest<unknown>('/webhooks/whatsapp/test', {
+    method: 'POST',
+    body: {
+      payload,
+    },
+  });
+
+  return toWebhookTestResponse(data);
 }
 
 export async function requestAiDecisionPreview(input: {

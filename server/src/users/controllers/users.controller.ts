@@ -36,7 +36,9 @@ export class UsersController {
   ) {}
 
   @Get()
-  async list(@CurrentUser() user: RequestUser): Promise<WorkspaceMemberResponse[]> {
+  async list(
+    @CurrentUser() user: RequestUser,
+  ): Promise<WorkspaceMemberResponse[]> {
     const members = await this.workspaceAccessService.getWorkspaceMembers(
       user.workspaceId,
     );
@@ -66,7 +68,7 @@ export class UsersController {
       });
 
       if (existingMembership) {
-        throw new Error('Kullanıcı zaten bu workspace\'de mevcut');
+        throw new Error("Kullanıcı zaten bu workspace'de mevcut");
       }
 
       await this.prisma.workspaceMember.create({
@@ -77,7 +79,7 @@ export class UsersController {
         },
       });
 
-      return { userId: existing.id, message: 'Kullanıcı workspace\'e eklendi' };
+      return { userId: existing.id, message: "Kullanıcı workspace'e eklendi" };
     }
 
     const newUser = await this.prisma.user.create({
@@ -110,7 +112,7 @@ export class UsersController {
     });
 
     if (!membership) {
-      return { ok: false, message: 'Kullanıcı bu workspace\'de bulunamadı' };
+      return { ok: false, message: "Kullanıcı bu workspace'de bulunamadı" };
     }
 
     await this.prisma.workspaceMember.update({
@@ -135,7 +137,7 @@ export class UsersController {
     });
 
     if (!membership) {
-      return { ok: false, message: 'Kullanıcı bu workspace\'de bulunamadı' };
+      return { ok: false, message: "Kullanıcı bu workspace'de bulunamadı" };
     }
 
     await this.prisma.workspaceMember.delete({

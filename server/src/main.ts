@@ -1,9 +1,11 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { NextFunction, Request, Response } from 'express';
 import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
+import { SentryExceptionFilter } from './common/filters/sentry-exception.filter';
 import { AppConfigService } from './config/app-config.service';
 
 function buildCorsOriginChecker(allowedOrigins: string[]) {
@@ -56,6 +58,46 @@ function createMemoryRateLimiter(options: {
   };
 }
 
+function setupSwagger(
+  app: NestExpressApplication,
+  config: AppConfigService,
+): void {
+  if (!config.swaggerEnabled) {
+    Logger.log(
+      `Swagger disabled environment=${config.appEnvironment}`,
+      'Bootstrap',
+    );
+    return;
+  }
+
+  const documentConfig = new DocumentBuilder()
+    .setTitle('WhatsApp Sales Engine API')
+    .setDescription('HTTP API for WhatsApp Sales Engine backend services.')
+    .setVersion(config.appVersion)
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+      },
+      'bearer',
+    )
+    .build();
+
+  const document = SwaggerModule.createDocument(app, documentConfig, {
+    deepScanRoutes: true,
+  });
+
+  SwaggerModule.setup(config.swaggerPath, app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+      docExpansion: 'none',
+    },
+  });
+
+  Logger.log(`Swagger UI available at /${config.swaggerPath}`, 'Bootstrap');
+}
+
 async function bootstrap(): Promise<void> {
   const runtimeRole = (process.env.APP_ROLE ?? 'api').trim().toLowerCase();
   if (runtimeRole === 'worker') {
@@ -64,7 +106,7 @@ async function bootstrap(): Promise<void> {
     workerApp.enableShutdownHooks();
 
     Logger.log(
-      `Worker runtime started role=${config.appRole} queueDriver=${config.queueDriver}`,
+      `Worker runtime started role=${config.appRole} queueDriver=${config.queueDriver} inlineWorkers=${config.queueInlineWorkers} environment=${config.appEnvironment}`,
       'Bootstrap',
     );
     return;
@@ -159,7 +201,14 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
+  app.useGlobalFilters(app.get(SentryExceptionFilter));
+  setupSwagger(app, config);
+
   app.enableShutdownHooks();
+  Logger.log(
+    `API runtime starting port=${config.port} queueDriver=${config.queueDriver} environment=${config.appEnvironment}`,
+    'Bootstrap',
+  );
   await app.listen(config.port);
 }
 

@@ -29,12 +29,18 @@ export class ScheduledReportsService {
         const stats = await this.getWorkspaceStats(workspace.id, type);
         await this.sendReportEmail(workspace.id, type, stats);
       } catch (error) {
-        this.logger.error(`Failed to generate ${type} report for workspace ${workspace.id}`, error);
+        this.logger.error(
+          `Failed to generate ${type} report for workspace ${workspace.id}`,
+          error,
+        );
       }
     }
   }
 
-  private async getWorkspaceStats(workspaceId: string, type: 'daily' | 'weekly') {
+  private async getWorkspaceStats(
+    workspaceId: string,
+    type: 'daily' | 'weekly',
+  ) {
     const daysAgo = type === 'daily' ? 1 : 7;
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - daysAgo);
@@ -57,7 +63,11 @@ export class ScheduledReportsService {
     return { conversations, messages, hotLeads };
   }
 
-  private async sendReportEmail(workspaceId: string, type: 'daily' | 'weekly', stats: { conversations: number; messages: number; hotLeads: number }) {
+  private async sendReportEmail(
+    workspaceId: string,
+    type: 'daily' | 'weekly',
+    stats: { conversations: number; messages: number; hotLeads: number },
+  ) {
     const workspace = await this.prisma.workspace.findUnique({
       where: { id: workspaceId },
       include: { members: { include: { user: true } } },
@@ -72,6 +82,8 @@ Toplam Mesajlar: ${stats.messages}
 Yeni Sıcak Leadler: ${stats.hotLeads}
     `.trim();
 
-    this.logger.log(`Report prepared for workspace ${workspaceId}: ${emailBody}`);
+    this.logger.log(
+      `Report prepared for workspace ${workspaceId}: ${emailBody}`,
+    );
   }
 }

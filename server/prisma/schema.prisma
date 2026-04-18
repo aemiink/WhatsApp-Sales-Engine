@@ -231,6 +231,38 @@ model WhatsAppConnection {
   @@map("whatsapp_connections")
 }
 
+model InstagramConnection {
+  id                   String   @id @default(uuid())
+  workspaceId          String   @unique
+  instagramUserId      String
+  username             String?
+  accessTokenEncrypted String
+  metadataJson         Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([workspaceId, updatedAt])
+  @@map("instagram_connections")
+}
+
+model AuthSession {
+  id          String   @id @default(uuid())
+  tokenId     String   @unique
+  userId      String
+  email       String
+  workspaceId String
+  revokedAt   DateTime?
+  expiresAt   DateTime
+  lastSeenAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([workspaceId, revokedAt, createdAt])
+  @@index([userId, revokedAt, createdAt])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
 model HandoffSession {
   id             String       @id @default(uuid())
   conversationId String

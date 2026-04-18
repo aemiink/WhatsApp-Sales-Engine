@@ -1,5 +1,12 @@
-import { Body, Controller, Get, Post, Res, StreamableFile, Query } from '@nestjs/common';
-import { Response } from 'express';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+} from '@nestjs/common';
+import { AiMode, ConversationStatus, LeadStage, Prisma } from '@prisma/client';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/interfaces/request-user.interface';
 import { PrismaService } from '../../database/prisma.service';
@@ -40,9 +47,17 @@ export class ExportController {
       return rows;
     }
 
-    const headers = 'phoneNumber,leadStage,status,aiMode,lastMessageAt,createdAt';
+    const headers =
+      'phoneNumber,leadStage,status,aiMode,lastMessageAt,createdAt';
     const csvRows = rows.map((row) =>
-      [row.phoneNumber, row.leadStage, row.status, row.aiMode, row.lastMessageAt ?? '', row.createdAt]
+      [
+        row.phoneNumber,
+        row.leadStage,
+        row.status,
+        row.aiMode,
+        row.lastMessageAt ?? '',
+        row.createdAt,
+      ]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
         .join(','),
     );
@@ -72,11 +87,13 @@ export class ExportController {
         continue;
       }
 
+      const mappedLeadStage = this.toLeadStage(lead.leadStage);
+
       await this.prisma.conversation.create({
         data: {
           workspaceId: user.workspaceId,
           phoneNumber: lead.phoneNumber,
-          leadStage: (lead.leadStage as any) ?? 'new',
+          ...(mappedLeadStage ? { leadStage: mappedLeadStage } : {}),
         },
       });
       imported++;
@@ -88,20 +105,25 @@ export class ExportController {
   @Post('bulk-update')
   async bulkUpdate(
     @CurrentUser() user: RequestUser,
-    @Body() body: {
+    @Body()
+    body: {
       conversationIds: string[];
       action: 'leadStage' | 'status' | 'aiMode';
       value: string;
     },
   ): Promise<{ updated: number }> {
-    const updateData: Record<string, any> = {};
+    const updateData: Prisma.ConversationUpdateManyMutationInput = {};
 
     if (body.action === 'leadStage') {
-      updateData.leadStage = body.value;
+      const leadStage = this.toLeadStage(body.value);
+      if (!leadStage) {
+        throw new BadRequestException('leadStage value is required');
+      }
+      updateData.leadStage = leadStage;
     } else if (body.action === 'status') {
-      updateData.status = body.value;
+      updateData.status = this.toConversationStatus(body.value);
     } else if (body.action === 'aiMode') {
-      updateData.aiMode = body.value;
+      updateData.aiMode = this.toAiMode(body.value);
     }
 
     await this.prisma.conversation.updateMany({
@@ -113,5 +135,53 @@ export class ExportController {
     });
 
     return { updated: body.conversationIds.length };
+  }
+
+  private toLeadStage(value?: string): LeadStage | null {
+    const normalized = value?.trim().toLowerCase();
+    if (!normalized) {
+      return null;
+    }
+
+    switch (normalized) {
+      case 'new':
+        return LeadStage.NEW;
+      case 'qualified':
+        return LeadStage.QUALIFIED;
+      case 'hot':
+        return LeadStage.HOT;
+      case 'lost':
+        return LeadStage.LOST;
+      case 'support':
+        return LeadStage.SUPPORT;
+      default:
+        throw new BadRequestException(`Unsupported leadStage value: ${value}`);
+    }
+  }
+
+  private toConversationStatus(value: string): ConversationStatus {
+    const normalized = value.trim().toLowerCase();
+    switch (normalized) {
+      case 'active':
+        return ConversationStatus.ACTIVE;
+      case 'closed':
+        return ConversationStatus.CLOSED;
+      default:
+        throw new BadRequestException(`Unsupported status value: ${value}`);
+    }
+  }
+
+  private toAiMode(value: string): AiMode {
+    const normalized = value.trim().toLowerCase();
+    switch (normalized) {
+      case 'auto_reply':
+        return AiMode.AUTO_REPLY;
+      case 'suggest_only':
+        return AiMode.SUGGEST_ONLY;
+      case 'paused':
+        return AiMode.PAUSED;
+      default:
+        throw new BadRequestException(`Unsupported aiMode value: ${value}`);
+    }
   }
 }

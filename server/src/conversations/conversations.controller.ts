@@ -7,12 +7,15 @@ import {
   Param,
   Post,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import type { RequestUser } from '../auth/interfaces/request-user.interface';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { ConversationsService } from './conversations.service';
 
+@ApiTags('conversations')
+@ApiBearerAuth('bearer')
 @Controller('conversations')
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}

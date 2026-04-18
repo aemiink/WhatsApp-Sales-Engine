@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AppConfigService } from '../config/app-config.service';
+import { InstagramSourceService } from './instagram-source.service';
 import {
   FetchedInstagramData,
   InstagramPost,
@@ -42,47 +43,40 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export class InstagramDataFetcherService {
   private readonly logger = new Logger(InstagramDataFetcherService.name);
 
-  constructor(private readonly appConfigService: AppConfigService) {}
+  constructor(
+    private readonly appConfigService: AppConfigService,
+    private readonly instagramSourceService: InstagramSourceService,
+  ) {}
 
   async fetchWorkspaceInstagramData(
     workspaceId: string,
     preferredHandle?: string,
   ): Promise<FetchedInstagramData> {
-    const warnings: string[] = [];
+    const resolvedSource =
+      await this.instagramSourceService.resolveSource(workspaceId);
+    const warnings: string[] = [...resolvedSource.warnings];
     const preferredNormalizedHandle = this.normalizeHandle(
       preferredHandle ?? null,
     );
 
-    const accessToken = this.appConfigService.instagramAccessToken;
-    const instagramUserId = this.appConfigService.instagramUserId;
-
-    if (!accessToken || !instagramUserId) {
-      warnings.push(
-        'INSTAGRAM_ACCESS_TOKEN/INSTAGRAM_USER_ID is not configured. Instagram analysis ran in profile-hint mode.',
-      );
-      return {
-        instagramHandle: preferredNormalizedHandle,
-        profileJson: this.buildFallbackProfile(preferredNormalizedHandle),
-        postsJson: [],
-        warnings,
-      };
-    }
-
     const profileResponse = await this.fetchProfile(
-      instagramUserId,
-      accessToken,
+      resolvedSource.instagramUserId,
+      resolvedSource.accessToken,
       warnings,
     );
     const mediaResponse = await this.fetchMedia(
-      instagramUserId,
-      accessToken,
+      resolvedSource.instagramUserId,
+      resolvedSource.accessToken,
       warnings,
     );
 
     const handleFromProfile = this.normalizeHandle(
       this.readString(profileResponse, 'username'),
     );
-    const instagramHandle = preferredNormalizedHandle ?? handleFromProfile;
+    const instagramHandle =
+      preferredNormalizedHandle ??
+      handleFromProfile ??
+      this.normalizeHandle(resolvedSource.username);
 
     if (
       preferredNormalizedHandle &&
@@ -105,7 +99,7 @@ export class InstagramDataFetcherService {
     }
 
     this.logger.log(
-      `Instagram data fetched workspace=${workspaceId} userId=${instagramUserId} handle=${instagramHandle ?? 'unknown'} posts=${postsJson.length}`,
+      `Instagram data fetched workspace=${workspaceId} source=${resolvedSource.source} userId=${resolvedSource.instagramUserId} handle=${instagramHandle ?? 'unknown'} posts=${postsJson.length}`,
     );
 
     return {

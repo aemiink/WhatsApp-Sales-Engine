@@ -5,9 +5,11 @@ interface TestEnvOverrides {
 export function applyBaseTestEnv(overrides?: TestEnvOverrides): void {
   const defaults: TestEnvOverrides = {
     NODE_ENV: 'test',
+    APP_ENVIRONMENT: 'test',
     PORT: '3000',
     APP_VERSION: '0.0.1-test',
     APP_ROLE: 'api',
+    SECRET_ENCRYPTION_KEY: 'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=',
     DATABASE_URL:
       'postgresql://postgres:postgres@localhost:5432/whatsapp_sales_engine?schema=public',
     DIRECT_URL:
@@ -57,11 +59,16 @@ export function applyBaseTestEnv(overrides?: TestEnvOverrides): void {
     WHATSAPP_APP_SECRET: 'test-whatsapp-app-secret-value',
     WHATSAPP_WEBHOOK_SIGNATURE_REQUIRED: 'false',
     WHATSAPP_PROVIDER_TIMEOUT_MS: '12000',
+    WHATSAPP_ENV_FALLBACK_ENABLED: 'true',
     META_GRAPH_API_VERSION: 'v21.0',
     INSTAGRAM_GRAPH_API_VERSION: 'v21.0',
     INSTAGRAM_MEDIA_LIMIT: '20',
     INSTAGRAM_PROVIDER_TIMEOUT_MS: '5000',
+    INSTAGRAM_ENV_FALLBACK_ENABLED: 'true',
     EMAIL_PROVIDER_TIMEOUT_MS: '10000',
+    SENTRY_ENABLED: 'false',
+    SWAGGER_ENABLED: 'false',
+    WEBHOOK_TEST_TOOL_ENABLED: 'true',
   };
 
   const merged = {

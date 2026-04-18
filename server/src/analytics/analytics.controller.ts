@@ -6,12 +6,15 @@ import {
   Param,
   Post,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import type { RequestUser } from '../auth/interfaces/request-user.interface';
 import { TrackAnalyticsEventDto } from './dto/track-analytics-event.dto';
 import { AnalyticsService } from './analytics.service';
 
+@ApiTags('analytics')
+@ApiBearerAuth('bearer')
 @Controller('analytics')
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}

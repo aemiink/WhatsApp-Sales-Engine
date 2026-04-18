@@ -1,4 +1,5 @@
 import { Transform, Type } from 'class-transformer';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsInt, IsOptional, Max, Min } from 'class-validator';
 
 function toBoolean(value: unknown): boolean | undefined {
@@ -18,6 +19,12 @@ function toBoolean(value: unknown): boolean | undefined {
 }
 
 export class ListNotificationsQueryDto {
+  @ApiPropertyOptional({
+    minimum: 1,
+    maximum: 100,
+    default: 25,
+    description: 'Maximum number of notifications to return.',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -25,6 +32,10 @@ export class ListNotificationsQueryDto {
   @Max(100)
   limit?: number;
 
+  @ApiPropertyOptional({
+    description: 'When true, returns only unread notifications.',
+    default: false,
+  })
   @IsOptional()
   @Transform(({ value }) => toBoolean(value))
   @IsBoolean()

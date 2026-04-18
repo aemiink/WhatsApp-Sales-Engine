@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  Send,
   Play,
   Trash2,
   RefreshCw,
@@ -11,116 +10,163 @@ import {
   MessageSquare,
   Webhook,
 } from 'lucide-react';
+import { ApiError } from '../lib/api/apiClient';
+import {
+  testWebhookPayload,
+  type WebhookTestResponse,
+} from '../lib/api/services';
 import { PageHeader } from '../components/shared/PageHeader';
-import { ErrorState, LoadingState } from '../components/shared/PageStates';
 
 interface WebhookLog {
   id: string;
   timestamp: string;
-  type: 'inbound' | 'outbound';
   status: 'success' | 'failed' | 'pending';
-  phoneNumber?: string;
-  message?: string;
+  summary: string;
+  result?: WebhookTestResponse;
   error?: string;
 }
 
-const mockLogs: WebhookLog[] = [
-  {
-    id: '1',
-    timestamp: new Date(Date.now() - 60000).toISOString(),
-    type: 'inbound',
-    status: 'success',
-    phoneNumber: '+905555555555',
-    message: 'Merhaba, ürün fiyatlarını öğrenebilir miyim?',
-  },
-  {
-    id: '2',
-    timestamp: new Date(Date.now() - 120000).toISOString(),
-    type: 'outbound',
-    status: 'success',
-    phoneNumber: '+905555555555',
-    message: 'Merhaba! Size yardımcı olabilirim. Hangi ürün hakkında bilgi istediğinizi belirtir misiniz?',
-  },
-  {
-    id: '3',
-    timestamp: new Date(Date.now() - 180000).toISOString(),
-    type: 'inbound',
-    status: 'failed',
-    phoneNumber: '+905555555556',
-    message: 'Bana indirim yapıyor musunuz?',
-    error: 'Webhook signature doğrulama hatası',
-  },
-];
-
-export function WebhookTest() {
-  const [logs, setLogs] = useState<WebhookLog[]>(mockLogs);
-  const [testPayload, setTestPayload] = useState<string>(
-    JSON.stringify(
-      {
-        object: 'whatsapp_business_account',
-        entry: [
-          {
-            id: '123456789',
-            changes: [
+const defaultPayload = {
+  object: 'whatsapp_business_account',
+  entry: [
+    {
+      id: '123456789',
+      changes: [
+        {
+          value: {
+            messaging_product: 'whatsapp',
+            from: '+905555555555',
+            to: '123456789',
+            timestamp: Date.now().toString(),
+            messages: [
               {
-                value: {
-                  messaging_product: 'whatsapp',
-                  from: '+905555555555',
-                  to: '123456789',
-                  timestamp: Date.now().toString(),
-                  messages: [
-                    {
-                      id: 'wamid.test',
-                      from: '+905555555555',
-                      type: 'text',
-                      text: {
-                        body: 'Test mesajı',
-                      },
-                    },
-                  ],
+                id: 'wamid.test',
+                from: '+905555555555',
+                type: 'text',
+                text: {
+                  body: 'Test mesajı',
                 },
-                field: 'messages',
               },
             ],
           },
-        ],
-      },
-      null,
-      2,
-    ),
+          field: 'messages',
+        },
+      ],
+    },
+  ],
+};
+
+function summaryFromResult(result: WebhookTestResponse): string {
+  return `event=${result.eventCount} processed=${result.processedCount} duplicate=${result.duplicateCount} ignored=${result.ignoredCount} error=${result.errorCount}`;
+}
+
+export function WebhookTest() {
+  const [logs, setLogs] = useState<WebhookLog[]>([]);
+  const [testPayload, setTestPayload] = useState<string>(
+    JSON.stringify(defaultPayload, null, 2),
   );
   const [sending, setSending] = useState(false);
+  const [toolDisabled, setToolDisabled] = useState(false);
   const [testResult, setTestResult] = useState<{
     status: 'success' | 'failed' | null;
     message: string;
   } | null>(null);
 
+  const latest = useMemo(() => logs[0] ?? null, [logs]);
+
   const sendTestWebhook = async () => {
     setSending(true);
     setTestResult(null);
 
+    let parsedPayload: unknown;
     try {
-      const payload = JSON.parse(testPayload);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      const newLog: WebhookLog = {
-        id: Date.now().toString(),
-        timestamp: new Date().toISOString(),
-        type: 'inbound',
-        status: 'success',
-        phoneNumber: payload.entry?.[0]?.changes?.[0]?.value?.from,
-        message: payload.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body,
-      };
-
-      setLogs([newLog, ...logs]);
-      setTestResult({
-        status: 'success',
-        message: 'Webhook başarıyla tetiklendi!',
-      });
+      parsedPayload = JSON.parse(testPayload);
     } catch {
       setTestResult({
         status: 'failed',
         message: 'Geçersiz JSON formatı!',
+      });
+      setSending(false);
+      return;
+    }
+
+    if (
+      typeof parsedPayload !== 'object' ||
+      parsedPayload === null ||
+      Array.isArray(parsedPayload)
+    ) {
+      setTestResult({
+        status: 'failed',
+        message: 'Payload JSON object olmalı.',
+      });
+      setSending(false);
+      return;
+    }
+
+    const startedAt = new Date().toISOString();
+    const pendingLogId = `${Date.now()}`;
+    setLogs((prev) => [
+      {
+        id: pendingLogId,
+        timestamp: startedAt,
+        status: 'pending',
+        summary: 'Webhook test isteği gönderiliyor...',
+      },
+      ...prev,
+    ]);
+
+    try {
+      const result = await testWebhookPayload(
+        parsedPayload as Record<string, unknown>,
+      );
+      const ok = result.errorCount === 0;
+
+      setLogs((prev) =>
+        prev.map((item) =>
+          item.id === pendingLogId
+            ? {
+                ...item,
+                status: ok ? 'success' : 'failed',
+                summary: summaryFromResult(result),
+                result,
+              }
+            : item,
+        ),
+      );
+
+      setToolDisabled(false);
+      setTestResult({
+        status: ok ? 'success' : 'failed',
+        message: ok
+          ? 'Webhook başarıyla işlendi.'
+          : 'Webhook işlendi ama hata/ignore sonucu döndü. Detayları inceleyin.',
+      });
+    } catch (error: unknown) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : 'Webhook testi sırasında beklenmeyen bir hata oluştu.';
+      const disabled = error instanceof ApiError && error.status === 403;
+
+      setToolDisabled(disabled);
+      setLogs((prev) =>
+        prev.map((item) =>
+          item.id === pendingLogId
+            ? {
+                ...item,
+                status: 'failed',
+                summary: message,
+                error: message,
+              }
+            : item,
+        ),
+      );
+
+      setTestResult({
+        status: 'failed',
+        message: disabled
+          ? 'Webhook test aracı bu ortamda kapalı.'
+          : message,
       });
     } finally {
       setSending(false);
@@ -148,8 +194,15 @@ export function WebhookTest() {
       <div className="mx-auto max-w-6xl p-6 md:p-8">
         <PageHeader
           title="Webhook Test"
-          description="WhatsApp webhooklarını test et ve izle"
+          description="WhatsApp webhook payload'ını gerçek backend hattında test et"
         />
+
+        {toolDisabled && (
+          <div className="mt-4 rounded-md border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-700">
+            Bu araç production/staging ortamlarında kapalıdır. Dev/test ortamında
+            ve admin oturumuyla kullanılmalıdır.
+          </div>
+        )}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           <div className="rounded-lg border border-border bg-card p-6">
@@ -157,7 +210,7 @@ export function WebhookTest() {
               <h3 className="text-lg font-semibold">Test Payload</h3>
               <button
                 onClick={sendTestWebhook}
-                disabled={sending}
+                disabled={sending || toolDisabled}
                 className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
               >
                 {sending ? (
@@ -192,6 +245,36 @@ export function WebhookTest() {
                 <span className="text-sm font-medium">{testResult.message}</span>
               </div>
             )}
+
+            {latest?.result && (
+              <div className="mt-4 rounded-md border border-border bg-background/60 p-3 text-sm">
+                <p className="font-medium">Son Sonuç</p>
+                <p className="mt-1 text-muted-foreground">{latest.summary}</p>
+                {latest.result.events.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {latest.result.events.slice(0, 3).map((event) => (
+                      <div
+                        key={event.dedupKey}
+                        className="rounded border border-border p-2"
+                      >
+                        <p className="font-mono text-xs text-muted-foreground">
+                          dedup: {event.dedupKey}
+                        </p>
+                        <p className="mt-1 text-xs">
+                          type={event.normalizedEvent.eventType} phone=
+                          {event.normalizedEvent.fromPhoneNumber ?? 'unknown'}
+                        </p>
+                        {event.normalizedEvent.textBody && (
+                          <p className="mt-1 truncate text-xs text-muted-foreground">
+                            {event.normalizedEvent.textBody}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="rounded-lg border border-border bg-card p-6">
@@ -210,7 +293,7 @@ export function WebhookTest() {
               <div className="flex h-[200px] items-center justify-center text-muted-foreground">
                 <div className="text-center">
                   <Webhook className="mx-auto h-8 w-8 opacity-50" />
-                  <p className="mt-2 text-sm">Henüz webhook logu yok</p>
+                  <p className="mt-2 text-sm">Henüz webhook test logu yok</p>
                 </div>
               </div>
             ) : (
@@ -223,27 +306,21 @@ export function WebhookTest() {
                     {getStatusIcon(log.status)}
                     <div className="flex-1 overflow-hidden">
                       <div className="flex items-center justify-between">
-                        <span className="font-mono text-sm">
-                          {log.phoneNumber || 'Bilinmeyen'}
-                        </span>
+                        <span className="font-mono text-sm">Webhook Test</span>
                         <span className="text-xs text-muted-foreground">
                           {new Date(log.timestamp).toLocaleTimeString('tr-TR')}
                         </span>
                       </div>
-                      {log.message && (
-                        <p className="mt-1 truncate text-sm text-muted-foreground">
-                          {log.message}
-                        </p>
-                      )}
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {log.summary}
+                      </p>
                       {log.error && (
-                        <p className="mt-1 truncate text-sm text-red-500">
-                          {log.error}
-                        </p>
+                        <p className="mt-1 text-sm text-red-500">{log.error}</p>
                       )}
                       <div className="mt-2 flex items-center gap-1">
                         <MessageSquare className="h-3 w-3 text-muted-foreground" />
                         <span className="text-xs uppercase text-muted-foreground">
-                          {log.type}
+                          backend
                         </span>
                       </div>
                     </div>

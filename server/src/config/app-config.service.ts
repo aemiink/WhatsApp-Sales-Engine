@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   AiDefaultProvider,
+  AppEnvironment,
   AppRuntimeRole,
   EnvironmentVariables,
   QueueDriver,
@@ -17,8 +18,34 @@ export class AppConfigService {
     return this.configService.getOrThrow('NODE_ENV');
   }
 
+  get appEnvironment(): AppEnvironment {
+    const configured = this.configService.get<AppEnvironment | undefined>(
+      'APP_ENVIRONMENT',
+    );
+
+    if (configured) {
+      return configured;
+    }
+
+    if (this.nodeEnv === 'production') {
+      return 'production';
+    }
+
+    if (this.nodeEnv === 'test') {
+      return 'test';
+    }
+
+    return 'development';
+  }
+
   get isProduction(): boolean {
     return this.nodeEnv === 'production';
+  }
+
+  get isProductionLike(): boolean {
+    return (
+      this.appEnvironment === 'production' || this.appEnvironment === 'staging'
+    );
   }
 
   get isTest(): boolean {
@@ -40,6 +67,10 @@ export class AppConfigService {
 
   get appRole(): AppRuntimeRole {
     return this.configService.getOrThrow<AppRuntimeRole>('APP_ROLE');
+  }
+
+  get secretEncryptionKey(): string {
+    return this.configService.getOrThrow<string>('SECRET_ENCRYPTION_KEY');
   }
 
   get databaseUrl(): string {
@@ -234,12 +265,14 @@ export class AppConfigService {
     return this.configService.getOrThrow<number>('QUEUE_JOB_REMOVE_ON_FAIL');
   }
 
-  get whatsappAccessToken(): string {
-    return this.configService.getOrThrow<string>('WHATSAPP_ACCESS_TOKEN');
+  get whatsappAccessToken(): string | undefined {
+    const value = this.configService.get<string>('WHATSAPP_ACCESS_TOKEN');
+    return value && value.length > 0 ? value : undefined;
   }
 
-  get whatsappPhoneNumberId(): string {
-    return this.configService.getOrThrow<string>('WHATSAPP_PHONE_NUMBER_ID');
+  get whatsappPhoneNumberId(): string | undefined {
+    const value = this.configService.get<string>('WHATSAPP_PHONE_NUMBER_ID');
+    return value && value.length > 0 ? value : undefined;
   }
 
   get whatsappBusinessAccountId(): string | undefined {
@@ -267,6 +300,13 @@ export class AppConfigService {
   get whatsappProviderTimeoutMs(): number {
     return this.configService.getOrThrow<number>(
       'WHATSAPP_PROVIDER_TIMEOUT_MS',
+    );
+  }
+
+  get whatsappEnvFallbackEnabled(): boolean {
+    return this.getBoolean(
+      'WHATSAPP_ENV_FALLBACK_ENABLED',
+      !this.isProductionLike,
     );
   }
 
@@ -312,6 +352,13 @@ export class AppConfigService {
     );
   }
 
+  get instagramEnvFallbackEnabled(): boolean {
+    return this.getBoolean(
+      'INSTAGRAM_ENV_FALLBACK_ENABLED',
+      !this.isProductionLike,
+    );
+  }
+
   get resendApiKey(): string | undefined {
     const value = this.configService.get<string>('RESEND_API_KEY');
     return value && value.length > 0 ? value : undefined;
@@ -321,7 +368,7 @@ export class AppConfigService {
     return this.configService.getOrThrow<number>('EMAIL_PROVIDER_TIMEOUT_MS');
   }
 
-get emailFromAddress(): string | undefined {
+  get emailFromAddress(): string | undefined {
     const value = this.configService.get<string>('EMAIL_FROM_ADDRESS');
     if (value && value.length > 0) {
       return value;
@@ -333,6 +380,30 @@ get emailFromAddress(): string | undefined {
   get sentryDsn(): string | undefined {
     const value = this.configService.get<string>('SENTRY_DSN');
     return value && value.length > 0 ? value : undefined;
+  }
+
+  get sentryEnabled(): boolean {
+    return this.getBoolean('SENTRY_ENABLED', this.isProductionLike);
+  }
+
+  get swaggerEnabled(): boolean {
+    return this.getBoolean('SWAGGER_ENABLED', !this.isProductionLike);
+  }
+
+  get swaggerPath(): string {
+    const value = this.configService.get<string>('SWAGGER_PATH');
+    if (value && value.trim().length > 0) {
+      return value.trim().replace(/^\/+/, '');
+    }
+
+    return 'docs';
+  }
+
+  get webhookTestToolEnabled(): boolean {
+    return this.getBoolean(
+      'WEBHOOK_TEST_TOOL_ENABLED',
+      this.nodeEnv !== 'production',
+    );
   }
 
   get appBaseUrl(): string {

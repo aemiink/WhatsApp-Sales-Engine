@@ -11,14 +11,15 @@ on:
       - '.github/workflows/server-tests.yml'
 
 jobs:
-  test:
+  server-tests:
+    name: Server Test Suite
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: server
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Node.js

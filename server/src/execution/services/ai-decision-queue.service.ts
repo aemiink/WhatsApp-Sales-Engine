@@ -35,11 +35,20 @@ export class AiDecisionQueueService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit(): Promise<void> {
     if (this.appConfigService.queueDriver !== 'bullmq') {
+      this.logger.log(
+        `AI decision queue initialized in direct mode environment=${this.appConfigService.appEnvironment}`,
+      );
       return;
     }
 
     const redisUrl = this.appConfigService.redisUrl;
     if (!redisUrl) {
+      if (this.appConfigService.isProductionLike) {
+        throw new Error(
+          'QUEUE_DRIVER=bullmq requires REDIS_URL in production-like environments.',
+        );
+      }
+
       this.logger.warn(
         'QUEUE_DRIVER=bullmq but REDIS_URL is missing. Falling back to direct execution.',
       );
