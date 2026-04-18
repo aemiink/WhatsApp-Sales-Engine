@@ -1,57 +1,178 @@
-import { createBrowserRouter } from "react-router";
-import { Layout } from "./components/Layout";
-import { ProtectedRoute } from "./components/ProtectedRoute";
-import { Dashboard } from "./pages/Dashboard";
-import { LiveChat } from "./pages/LiveChat";
-import { AutomationBuilder } from "./pages/AutomationBuilder";
-import { AITraining } from "./pages/AITraining";
-import { LeadManagement } from "./pages/LeadManagement";
-import { Analytics } from "./pages/Analytics";
-import { Connection } from "./pages/Connection";
-import { AISetup } from "./pages/AISetup";
-import { AIReady } from "./pages/AIReady";
-import { AIKnowledge } from "./pages/AIKnowledge";
-import { WebhookTest } from "./pages/WebhookTest";
-import { Login } from "./pages/Login";
+import { lazy, Suspense, type ReactNode } from 'react';
+import { createBrowserRouter } from 'react-router';
+import { ProtectedRoute } from './components/ProtectedRoute';
+
+const Layout = lazy(() =>
+  import('./components/Layout').then((module) => ({ default: module.Layout })),
+);
+const Dashboard = lazy(() =>
+  import('./pages/Dashboard').then((module) => ({ default: module.Dashboard })),
+);
+const LiveChat = lazy(() =>
+  import('./pages/LiveChat').then((module) => ({ default: module.LiveChat })),
+);
+const AutomationBuilder = lazy(() =>
+  import('./pages/AutomationBuilder').then((module) => ({
+    default: module.AutomationBuilder,
+  })),
+);
+const AITraining = lazy(() =>
+  import('./pages/AITraining').then((module) => ({ default: module.AITraining })),
+);
+const LeadManagement = lazy(() =>
+  import('./pages/LeadManagement').then((module) => ({
+    default: module.LeadManagement,
+  })),
+);
+const Analytics = lazy(() =>
+  import('./pages/Analytics').then((module) => ({ default: module.Analytics })),
+);
+const Connection = lazy(() =>
+  import('./pages/Connection').then((module) => ({ default: module.Connection })),
+);
+const AISetup = lazy(() =>
+  import('./pages/AISetup').then((module) => ({ default: module.AISetup })),
+);
+const AIReady = lazy(() =>
+  import('./pages/AIReady').then((module) => ({ default: module.AIReady })),
+);
+const AIKnowledge = lazy(() =>
+  import('./pages/AIKnowledge').then((module) => ({
+    default: module.AIKnowledge,
+  })),
+);
+const WebhookTest = lazy(() =>
+  import('./pages/WebhookTest').then((module) => ({
+    default: module.WebhookTest,
+  })),
+);
+const Login = lazy(() =>
+  import('./pages/Login').then((module) => ({ default: module.Login })),
+);
+
+function RouteFallback() {
+  return (
+    <div className="flex h-[calc(100vh-56px)] w-full items-center justify-center bg-background">
+      <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+    </div>
+  );
+}
+
+function Suspended({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<RouteFallback />}>{children}</Suspense>;
+}
 
 export const router = createBrowserRouter([
   {
-    path: "/login",
-    Component: Login,
+    path: '/login',
+    element: (
+      <Suspended>
+        <Login />
+      </Suspended>
+    ),
   },
   {
-    path: "/ai-setup",
+    path: '/ai-setup',
     element: (
       <ProtectedRoute>
-        <AISetup />
+        <Suspended>
+          <AISetup />
+        </Suspended>
       </ProtectedRoute>
     ),
   },
   {
-    path: "/ai-ready",
+    path: '/ai-ready',
     element: (
       <ProtectedRoute>
-        <AIReady />
+        <Suspended>
+          <AIReady />
+        </Suspended>
       </ProtectedRoute>
     ),
   },
   {
-    path: "/",
+    path: '/',
     element: (
       <ProtectedRoute>
-        <Layout />
+        <Suspended>
+          <Layout />
+        </Suspended>
       </ProtectedRoute>
     ),
     children: [
-      { index: true, Component: Dashboard },
-      { path: "chat", Component: LiveChat },
-      { path: "automation", Component: AutomationBuilder },
-      { path: "training", Component: AITraining },
-      { path: "ai-knowledge", Component: AIKnowledge },
-      { path: "leads", Component: LeadManagement },
-      { path: "analytics", Component: Analytics },
-      { path: "connection", Component: Connection },
-      { path: "webhook-test", Component: WebhookTest },
+      {
+        index: true,
+        element: (
+          <Suspended>
+            <Dashboard />
+          </Suspended>
+        ),
+      },
+      {
+        path: 'chat',
+        element: (
+          <Suspended>
+            <LiveChat />
+          </Suspended>
+        ),
+      },
+      {
+        path: 'automation',
+        element: (
+          <Suspended>
+            <AutomationBuilder />
+          </Suspended>
+        ),
+      },
+      {
+        path: 'training',
+        element: (
+          <Suspended>
+            <AITraining />
+          </Suspended>
+        ),
+      },
+      {
+        path: 'ai-knowledge',
+        element: (
+          <Suspended>
+            <AIKnowledge />
+          </Suspended>
+        ),
+      },
+      {
+        path: 'leads',
+        element: (
+          <Suspended>
+            <LeadManagement />
+          </Suspended>
+        ),
+      },
+      {
+        path: 'analytics',
+        element: (
+          <Suspended>
+            <Analytics />
+          </Suspended>
+        ),
+      },
+      {
+        path: 'connection',
+        element: (
+          <Suspended>
+            <Connection />
+          </Suspended>
+        ),
+      },
+      {
+        path: 'webhook-test',
+        element: (
+          <Suspended>
+            <WebhookTest />
+          </Suspended>
+        ),
+      },
     ],
   },
 ]);
