@@ -4,8 +4,8 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "lint": "npm run build",
-    "test": "node -e \"console.log('No automated client tests configured yet.')\"",
+    "lint": "node -e \"console.log('No automated client lint configured yet (placeholder).')\"",
+    "test": "node -e \"console.log('No automated client tests configured yet (placeholder).')\"",
     "build": "vite build",
     "dev": "vite"
   },

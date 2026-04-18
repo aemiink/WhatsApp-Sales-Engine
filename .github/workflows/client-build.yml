@@ -11,8 +11,8 @@ on:
       - '.github/workflows/client-build.yml'
 
 jobs:
-  client-build-lint:
-    name: Client Build/Lint/Test
+  client-quality:
+    name: Client Quality Checks
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -32,11 +32,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint client
-        run: npm run lint --if-present
+      - name: Run client lint command
+        run: npm run lint
 
-      - name: Test client
-        run: npm run test --if-present
+      - name: Run client test command
+        run: npm run test
 
-      - name: Build client
+      - name: Build client app
         run: npm run build

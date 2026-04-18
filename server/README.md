@@ -1,97 +1,154 @@
 # WhatsApp Sales Engine Server
 
-Production-oriented NestJS backend for multi-tenant WhatsApp sales automation.
+Multi-tenant NestJS backend for WhatsApp Sales Engine.  
+Core responsibilities: auth/session, conversation lifecycle, AI execution flow, analytics, notifications, and integration endpoints.
 
-## Requirements
+## Project Purpose
 
-- Node.js 22+
-- PostgreSQL (Supabase supported)
-- Redis (required for `bullmq` queue driver in staging/production)
+- Manage WhatsApp conversations per workspace (tenant-safe).
+- Execute AI-assisted reply and handoff flows.
+- Provide analytics, notifications, and operational APIs.
+- Run safely in production with strict env validation and fail-fast behavior.
 
-## Setup
+## Installation
 
 ```bash
+cd server
 npm ci
 npm run prisma:generate
-npm run prisma:migrate:dev
-npm run start:dev
 ```
 
-## Core Environment Variables
+## Environment Variables
 
-Copy `server/.env.example` to `server/.env` and configure at least:
+1. Copy `.env.example` to `.env`.
+2. Configure required secrets and connection URLs.
 
-- `DATABASE_URL`: runtime database URL
-- `DIRECT_URL`: migration URL
-- `SECRET_ENCRYPTION_KEY`: base64 key, must decode to 32 bytes (AES-256-GCM)
-- `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`
+Minimum required variables:
+
+- `DATABASE_URL`
+- `DIRECT_URL`
+- `SECRET_ENCRYPTION_KEY` (base64, decodes to exactly 32 bytes)
+- `JWT_ACCESS_SECRET`
+- `JWT_REFRESH_SECRET`
 - `WHATSAPP_WEBHOOK_VERIFY_TOKEN`
-- `AI_DEFAULT_PROVIDER` + provider key (`GEMINI_API_KEY` or `OPENAI_API_KEY`)
+- `AI_DEFAULT_PROVIDER` + provider API key
 
-### Environment behavior
+Important behavior flags:
 
 - `APP_ENVIRONMENT=development|test|staging|production`
-- In `staging/production`:
-  - `QUEUE_DRIVER` must be `bullmq`
-  - `REDIS_URL` is required
-  - `WHATSAPP_ENV_FALLBACK_ENABLED` must be `false`
-  - `INSTAGRAM_ENV_FALLBACK_ENABLED` must be `false`
-  - `WEBHOOK_TEST_TOOL_ENABLED` must be `false`
+- `SENTRY_ENABLED`, `SENTRY_DSN`
+- `SWAGGER_ENABLED`, `SWAGGER_PATH`
+- `WHATSAPP_ENV_FALLBACK_ENABLED`
+- `INSTAGRAM_ENV_FALLBACK_ENABLED`
+- `WEBHOOK_TEST_TOOL_ENABLED`
 
-## Queue and Worker
+## Prisma / Database
 
-Two runtime roles are supported:
+```bash
+npm run prisma:generate
+npm run prisma:migrate:dev
+```
 
-- API: `npm run start:dev` (or `npm run start`)
-- Worker: `npm run build && npm run start:worker`
+- Runtime DB uses `DATABASE_URL`.
+- Migrations use `DIRECT_URL`.
+- Session revocation is persisted in `auth_sessions`.
+- Instagram workspace source mapping is persisted in `instagram_connections`.
 
-Queue settings:
+## Auth
 
-- `QUEUE_DRIVER=memory|bullmq`
-- `QUEUE_INLINE_WORKERS=true|false`
-- `QUEUE_PREFIX`, concurrency and retry options in `.env.example`
+Primary endpoints:
 
-Production-like environments fail fast when queue config is invalid (for example missing Redis while using BullMQ).
+- `POST /auth/login`
+- `POST /auth/refresh`
+- `GET /auth/me`
 
-## Auth and Sessions
+Session control endpoints:
 
-- Login: `POST /auth/login`
-- Refresh: `POST /auth/refresh`
-- Current user: `GET /auth/me`
-- Admin session management: `GET /sessions`, `DELETE /sessions/:tokenId`, `POST /sessions/revoke-all`
+- `GET /sessions`
+- `DELETE /sessions/:tokenId`
+- `POST /sessions/revoke-all`
 
-Session revocation is persisted in database (`auth_sessions`) and survives restarts/multi-instance deployments.
+Session revocation is persistent (DB-backed), restart-safe, and suitable for multi-instance deployments.
 
-## WhatsApp and Instagram source resolution
+## Worker / Queue
 
-- WhatsApp connection resolution is workspace-first (DB), optional env fallback in development.
-- Instagram source resolution is workspace-first (`instagram_connections`), optional env fallback in development.
-- Access tokens are encrypted at rest via AES-256-GCM.
+Queue modes:
 
-## Swagger / OpenAPI
+- `QUEUE_DRIVER=memory` for local development only
+- `QUEUE_DRIVER=bullmq` for staging/production
 
-Swagger UI is available when enabled:
+Worker runtime:
 
-- `SWAGGER_ENABLED=true`
-- `SWAGGER_PATH=docs`
+```bash
+npm run build
+npm run start:worker
+```
 
-Default URL: `http://localhost:3000/docs`
+Production-like environments fail fast when queue config is invalid (for example BullMQ selected but Redis missing).
+
+## Webhook
+
+Public Meta webhook endpoints:
+
+- `GET /webhooks/whatsapp` (verification)
+- `POST /webhooks/whatsapp` (ingestion)
+
+Internal developer test endpoint:
+
+- `POST /webhooks/whatsapp/test` (admin-only)
+
+`/webhooks/whatsapp/test` must stay disabled in staging/production via `WEBHOOK_TEST_TOOL_ENABLED=false`.
+
+## Swagger
+
+Swagger/OpenAPI is configured in bootstrap.
+
+- `SWAGGER_ENABLED=true|false`
+- `SWAGGER_PATH=docs` (default)
+
+Default URL:
+
+- `http://localhost:3000/docs`
+
+Bearer auth schema is defined and main modules are tagged.
 
 ## Sentry
 
-Configure:
+Sentry is integrated through startup + global exception filtering.
 
 - `SENTRY_ENABLED=true`
-- `SENTRY_DSN=https://...`
+- `SENTRY_DSN=<dsn>`
 
-Server exceptions are captured through a global filter. Request context is sanitized and sensitive keys (token/secret/password/cookie/auth headers) are scrubbed.
+Behavior:
+
+- Enabled conditionally by env.
+- Captures server exceptions.
+- Adds request/workspace/user context.
+- Scrubs sensitive keys (tokens, secrets, passwords, auth headers, cookies).
 
 ## Test Commands
 
 ```bash
 npm run lint
+npm run build
 npm run test:unit
 npm run test:integration
 npm run test:e2e
 npm run test:smoke
 ```
+
+## Development vs Production Notes
+
+Development defaults optimize local ergonomics:
+
+- `QUEUE_DRIVER=memory`
+- env fallback can be enabled for WhatsApp/Instagram
+- webhook test tool can stay enabled
+
+Production/staging should enforce operational safety:
+
+- `QUEUE_DRIVER=bullmq`
+- `REDIS_URL` required
+- WhatsApp/Instagram source resolution should be DB-first (`*_ENV_FALLBACK_ENABLED=false`)
+- webhook test tool disabled
+- Sentry enabled with valid DSN

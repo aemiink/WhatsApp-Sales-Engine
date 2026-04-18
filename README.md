@@ -45,6 +45,7 @@ Server default URL: `http://localhost:3000`
 - `npm run dev`
 - `npm run build`
 - `npm run lint`
+- `npm run test`
 
 ## Architecture Summary
 
@@ -70,4 +71,6 @@ When enabled on server:
 GitHub Actions validates:
 
 - server tests
-- client build/lint/test workflow
+- client install + lint command + test command + build
+
+Client lint/test commands are currently explicit placeholders (no fake Playwright step).
