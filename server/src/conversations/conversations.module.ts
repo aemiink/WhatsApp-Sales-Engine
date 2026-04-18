@@ -6,7 +6,7 @@ import { MessagesService } from './messages.service';
 import { ExportController } from './controllers/export.controller';
 
 @Module({
-  controllers: [ConversationsController, ExportController],
+  controllers: [ExportController, ConversationsController],
   providers: [ConversationsService, MessagesService, MessageStatusService],
   exports: [ConversationsService, MessagesService, MessageStatusService],
 })

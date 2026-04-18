@@ -25,14 +25,16 @@ export type RealtimeNotificationEvent =
 @Injectable()
 export class RealtimeNotificationsService {
   private readonly logger = new Logger(RealtimeNotificationsService.name);
-  private readonly eventsSubject = new Subject<RealtimeNotificationEvent>();
+  // Keep a single stream bus even if Nest ends up creating multiple instances.
+  private static readonly sharedEventsSubject =
+    new Subject<RealtimeNotificationEvent>();
 
   stream(): Observable<RealtimeNotificationEvent> {
-    return this.eventsSubject.asObservable();
+    return RealtimeNotificationsService.sharedEventsSubject.asObservable();
   }
 
   publish(event: RealtimeNotificationEvent): void {
-    this.eventsSubject.next(event);
+    RealtimeNotificationsService.sharedEventsSubject.next(event);
     this.logger.debug(
       `Realtime notification published kind=${event.kind} workspaceId=${event.workspaceId}`,
     );
