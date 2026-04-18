@@ -44,8 +44,8 @@ function stringifyFaq(faq: Array<Record<string, unknown>>): string {
 }
 
 export function AIKnowledge() {
-  const brandQuery = useApiQuery(fetchBrandContext, []);
-  const trainingQuery = useApiQuery(fetchTrainingSettings, []);
+  const brandQuery = useApiQuery(fetchBrandContext);
+  const trainingQuery = useApiQuery(fetchTrainingSettings);
 
   const [websiteNotes, setWebsiteNotes] = useState('');
   const [instagramNotes, setInstagramNotes] = useState('');

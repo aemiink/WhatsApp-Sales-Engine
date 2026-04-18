@@ -24,7 +24,6 @@ import {
   updateConversationAiMode,
   type AiMode,
   type ConversationDetail,
-  type ConversationListItem,
   type ConversationMessage,
   type LeadStage,
 } from '../lib/api/services';
@@ -122,7 +121,7 @@ function latestMessageContent(detail: ConversationDetail | null): string {
 }
 
 export function LiveChat() {
-  const conversationsQuery = useApiQuery(fetchConversations, []);
+  const conversationsQuery = useApiQuery(fetchConversations);
   const [selectedId, setSelectedId] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<ConversationFilter>('all');
   const [searchValue, setSearchValue] = useState('');
@@ -135,7 +134,10 @@ export function LiveChat() {
   const [decision, setDecision] = useState<Record<string, unknown> | null>(null);
   const [decisionLoading, setDecisionLoading] = useState(false);
 
-  const conversations = conversationsQuery.data ?? [];
+  const conversations = useMemo(
+    () => conversationsQuery.data ?? [],
+    [conversationsQuery.data],
+  );
 
   useEffect(() => {
     if (conversations.length === 0) {

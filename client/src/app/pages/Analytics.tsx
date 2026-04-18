@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import {
   CartesianGrid,
   Line,
@@ -84,20 +85,18 @@ function buildTrendData(events: Array<{ type: string; createdAt: string }>): Tre
 
 export function Analytics() {
   const { workspace } = useAuth();
-  const overviewQuery = useApiQuery(fetchAnalyticsOverview, []);
-  const funnelQuery = useApiQuery(fetchAnalyticsFunnel, []);
-  const conversationMetricsQuery = useApiQuery(fetchAnalyticsConversationMetrics, []);
-  const aiQuery = useApiQuery(fetchAnalyticsAiPerformance, []);
-  const eventsQuery = useApiQuery(
-    () => {
-      if (!workspace?.id) {
-        return Promise.resolve([]);
-      }
+  const overviewQuery = useApiQuery(fetchAnalyticsOverview);
+  const funnelQuery = useApiQuery(fetchAnalyticsFunnel);
+  const conversationMetricsQuery = useApiQuery(fetchAnalyticsConversationMetrics);
+  const aiQuery = useApiQuery(fetchAnalyticsAiPerformance);
+  const eventsLoader = useCallback(() => {
+    if (!workspace?.id) {
+      return Promise.resolve([]);
+    }
 
-      return fetchAnalyticsEvents(workspace.id);
-    },
-    [workspace?.id],
-  );
+    return fetchAnalyticsEvents(workspace.id);
+  }, [workspace?.id]);
+  const eventsQuery = useApiQuery(eventsLoader);
 
   const isLoading =
     overviewQuery.isLoading ||

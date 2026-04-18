@@ -67,11 +67,11 @@ function formatRelativeTime(value: string | null): string {
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const overviewQuery = useApiQuery(fetchAnalyticsOverview, []);
-  const funnelQuery = useApiQuery(fetchAnalyticsFunnel, []);
-  const conversationMetricsQuery = useApiQuery(fetchAnalyticsConversationMetrics, []);
-  const aiQuery = useApiQuery(fetchAnalyticsAiPerformance, []);
-  const conversationsQuery = useApiQuery(fetchConversations, []);
+  const overviewQuery = useApiQuery(fetchAnalyticsOverview);
+  const funnelQuery = useApiQuery(fetchAnalyticsFunnel);
+  const conversationMetricsQuery = useApiQuery(fetchAnalyticsConversationMetrics);
+  const aiQuery = useApiQuery(fetchAnalyticsAiPerformance);
+  const conversationsQuery = useApiQuery(fetchConversations);
 
   const isLoading =
     overviewQuery.isLoading ||

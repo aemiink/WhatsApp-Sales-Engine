@@ -19,7 +19,7 @@ import {
 import { useApiQuery } from '../lib/api/useApiQuery';
 
 export function Connection() {
-  const statusQuery = useApiQuery(fetchConnectionStatus, []);
+  const statusQuery = useApiQuery(fetchConnectionStatus);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);

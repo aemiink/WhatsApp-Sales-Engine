@@ -10,8 +10,6 @@ interface RateLimitEntry {
 
 const rateLimits = new Map<string, RateLimitEntry>();
 const DEFAULT_RATE_LIMIT = 100;
-const REQUEST_DEDUP_INTERVAL_MS = 5000;
-const dedupMap = new Map<string, Promise<unknown>>();
 
 function checkRateLimit(key: string, limit: number = DEFAULT_RATE_LIMIT): boolean {
   const now = Date.now();

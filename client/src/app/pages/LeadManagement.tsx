@@ -120,7 +120,7 @@ function latestMessage(detail: ConversationDetail | null): string {
 
 export function LeadManagement() {
   const navigate = useNavigate();
-  const conversationsQuery = useApiQuery(fetchConversations, []);
+  const conversationsQuery = useApiQuery(fetchConversations);
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
   const [query, setQuery] = useState('');
   const [selectedLeadId, setSelectedLeadId] = useState('');
@@ -128,7 +128,10 @@ export function LeadManagement() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  const leads = conversationsQuery.data ?? [];
+  const leads = useMemo(
+    () => conversationsQuery.data ?? [],
+    [conversationsQuery.data],
+  );
 
   useEffect(() => {
     if (leads.length === 0) {

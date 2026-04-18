@@ -18,8 +18,8 @@ interface CompletionItem {
 
 export function AIReady() {
   const navigate = useNavigate();
-  const brandQuery = useApiQuery(fetchBrandContext, []);
-  const trainingQuery = useApiQuery(fetchTrainingSettings, []);
+  const brandQuery = useApiQuery(fetchBrandContext);
+  const trainingQuery = useApiQuery(fetchTrainingSettings);
 
   const isLoading = brandQuery.isLoading || trainingQuery.isLoading;
   const error = brandQuery.error ?? trainingQuery.error;

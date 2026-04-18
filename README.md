@@ -72,5 +72,3 @@ GitHub Actions validates:
 
 - server tests
 - client install + lint command + test command + build
-
-Client lint/test commands are currently explicit placeholders (no fake Playwright step).

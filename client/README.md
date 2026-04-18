@@ -31,13 +31,13 @@ VITE_API_BASE_URL=http://localhost:3000
 
 ## CI Notes
 
-Current client scripts are intentionally explicit:
+Client CI executes real commands:
 
-- `npm run lint` -> placeholder output (no dedicated lint framework configured yet)
-- `npm run test` -> placeholder output (no automated client test suite configured yet)
-- `npm run build` -> real production build check
+- `npm run lint` -> ESLint (TypeScript + React hooks rules)
+- `npm run test` -> Vitest test suite
+- `npm run build` -> production build validation
 
-CI reflects this honestly and does not fake Playwright/test execution.
+No fake Playwright or placeholder test step is used.
 
 ## Runtime Notes
 

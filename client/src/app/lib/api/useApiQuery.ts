@@ -2,7 +2,6 @@ import {
   useCallback,
   useEffect,
   useState,
-  type DependencyList,
   type Dispatch,
   type SetStateAction,
 } from 'react';
@@ -25,7 +24,6 @@ export interface ApiQueryState<T> {
 
 export function useApiQuery<T>(
   loader: () => Promise<T>,
-  deps: DependencyList,
 ): ApiQueryState<T> {
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,7 +41,7 @@ export function useApiQuery<T>(
     } finally {
       setIsLoading(false);
     }
-  }, deps);
+  }, [loader]);
 
   useEffect(() => {
     void refetch();

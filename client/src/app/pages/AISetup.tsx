@@ -138,8 +138,8 @@ export function AISetup() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [stepError, setStepError] = useState<string | null>(null);
 
-  const brandQuery = useApiQuery(fetchBrandContext, []);
-  const trainingQuery = useApiQuery(fetchTrainingSettings, []);
+  const brandQuery = useApiQuery(fetchBrandContext);
+  const trainingQuery = useApiQuery(fetchTrainingSettings);
   const hydratedRef = useRef(false);
 
   useEffect(() => {

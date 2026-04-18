@@ -61,8 +61,8 @@ function asTextLines(value: string): string[] {
 }
 
 export function AITraining() {
-  const brandQuery = useApiQuery(fetchBrandContext, []);
-  const trainingQuery = useApiQuery(fetchTrainingSettings, []);
+  const brandQuery = useApiQuery(fetchBrandContext);
+  const trainingQuery = useApiQuery(fetchTrainingSettings);
 
   const [tone, setTone] = useState('premium');
   const [salesStyle, setSalesStyle] = useState('balanced');

@@ -4,8 +4,9 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "lint": "node -e \"console.log('No automated client lint configured yet (placeholder).')\"",
-    "test": "node -e \"console.log('No automated client tests configured yet (placeholder).')\"",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "build": "vite build",
     "dev": "vite"
   },
@@ -67,10 +68,21 @@
     "vaul": "1.1.2"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.1",
     "@tailwindcss/vite": "4.1.12",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
     "@vitejs/plugin-react": "4.7.0",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.0",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.4.0",
+    "jsdom": "^27.0.1",
     "tailwindcss": "4.1.12",
-    "vite": "6.3.5"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.1",
+    "vite": "6.3.5",
+    "vitest": "^3.2.4"
   },
   "peerDependencies": {
     "react": "18.3.1",
